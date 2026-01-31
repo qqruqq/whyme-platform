@@ -1,0 +1,17 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: whyme-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: whyme
+      POSTGRES_PASSWORD: whyme
+      POSTGRES_DB: whyme
+    volumes:
+      - whyme_pg_data:/var/lib/postgresql/data
+
+volumes:
+  whyme_pg_data:

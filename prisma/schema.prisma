@@ -1,0 +1,112 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model ReservationSlot {
+  id        String    @id @default(uuid())
+  startTime DateTime
+  endTime   DateTime
+  capacity  Int       @default(1) // 동시에 수용 가능한 그룹 수
+  
+  groupPasses GroupPass[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model GroupPass {
+  id               String       @id @default(uuid())
+  
+  // 대표자 정보
+  repName          String
+  repPhone         String
+  
+  // 접근 및 관리용 보안 토큰
+  manageToken      String       @unique @default(uuid()) 
+  
+  // 인원 및 상태
+  headcountMin      Int         @default(2)
+  headcountMax      Int         @default(6)
+  headcountDeclared Int         
+  headcountFinal    Int         @default(0)
+  
+  rosterStatus      RosterStatus @default(draft)
+  status            GroupStatus  @default(pending)
+  
+  // 관계
+  slotId            String
+  slot              ReservationSlot @relation(fields: [slotId], references: [id])
+  
+  members           GroupMember[]
+  payments          Payment[]
+  inviteTokens      InviteToken[]
+
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+}
+
+// 초대 토큰 (구성원 입력용, 1회성)
+model InviteToken {
+  id          String    @id @default(uuid())
+  token       String    @unique @default(uuid())
+  
+  isUsed      Boolean   @default(false)
+  expiresAt   DateTime? // 유효기간 설정 가능
+  
+  groupPassId String
+  groupPass   GroupPass @relation(fields: [groupPassId], references: [id])
+  
+  createdAt   DateTime  @default(now())
+}
+
+model GroupMember {
+  id          String    @id @default(uuid())
+  
+  parentName  String
+  parentPhone String
+  
+  childName   String
+  childAge    Int?
+  childNote   String?   // 특이사항 등
+  
+  groupPassId String
+  groupPass   GroupPass @relation(fields: [groupPassId], references: [id])
+  
+  createdAt   DateTime  @default(now())
+}
+
+model Payment {
+  id          String      @id @default(uuid())
+  
+  type        PaymentType
+  amount      Int         // 양수: 입금, 음수: 환불/차감
+  description String?
+  
+  groupPassId String
+  groupPass   GroupPass   @relation(fields: [groupPassId], references: [id])
+  
+  createdAt   DateTime    @default(now())
+}
+
+enum RosterStatus {
+  draft       // 작성 중
+  collecting  // 명단 취합 중 (링크 공유)
+  locked      // 명단 확정 (수정 불가)
+}
+
+enum GroupStatus {
+  pending     // 예약 대기
+  confirmed   // 예약 확정 (입금 완료 등)
+  cancelled   // 취소됨
+}
+
+enum PaymentType {
+  deposit     // 입금
+  refund      // 환불
+  adjustment  // 차액 조정
+}
