@@ -7,106 +7,199 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model ReservationSlot {
-  id        String    @id @default(uuid())
-  startTime DateTime
-  endTime   DateTime
-  capacity  Int       @default(1) // 동시에 수용 가능한 그룹 수
-  
-  groupPasses GroupPass[]
-
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-}
-
-model GroupPass {
-  id               String       @id @default(uuid())
-  
-  // 대표자 정보
-  repName          String
-  repPhone         String
-  
-  // 접근 및 관리용 보안 토큰
-  manageToken      String       @unique @default(uuid()) 
-  
-  // 인원 및 상태
-  headcountMin      Int         @default(2)
-  headcountMax      Int         @default(6)
-  headcountDeclared Int         
-  headcountFinal    Int         @default(0)
-  
-  rosterStatus      RosterStatus @default(draft)
-  status            GroupStatus  @default(pending)
-  
-  // 관계
-  slotId            String
-  slot              ReservationSlot @relation(fields: [slotId], references: [id])
-  
-  members           GroupMember[]
-  payments          Payment[]
-  inviteTokens      InviteToken[]
-
-  createdAt         DateTime    @default(now())
-  updatedAt         DateTime    @updatedAt
-}
-
-// 초대 토큰 (구성원 입력용, 1회성)
-model InviteToken {
-  id          String    @id @default(uuid())
-  token       String    @unique @default(uuid())
-  
-  isUsed      Boolean   @default(false)
-  expiresAt   DateTime? // 유효기간 설정 가능
-  
-  groupPassId String
-  groupPass   GroupPass @relation(fields: [groupPassId], references: [id])
-  
-  createdAt   DateTime  @default(now())
-}
-
-model GroupMember {
-  id          String    @id @default(uuid())
-  
-  parentName  String
-  parentPhone String
-  
-  childName   String
-  childAge    Int?
-  childNote   String?   // 특이사항 등
-  
-  groupPassId String
-  groupPass   GroupPass @relation(fields: [groupPassId], references: [id])
-  
-  createdAt   DateTime  @default(now())
-}
-
-model Payment {
-  id          String      @id @default(uuid())
-  
-  type        PaymentType
-  amount      Int         // 양수: 입금, 음수: 환불/차감
-  description String?
-  
-  groupPassId String
-  groupPass   GroupPass   @relation(fields: [groupPassId], references: [id])
-  
-  createdAt   DateTime    @default(now())
-}
-
-enum RosterStatus {
-  draft       // 작성 중
-  collecting  // 명단 취합 중 (링크 공유)
-  locked      // 명단 확정 (수정 불가)
+// ===== ENUMs =====
+enum SlotStatus {
+  open
+  closed
+  @@map("slot_status")
 }
 
 enum GroupStatus {
-  pending     // 예약 대기
-  confirmed   // 예약 확정 (입금 완료 등)
-  cancelled   // 취소됨
+  pending_info
+  pending_payment
+  confirmed
+  cancelled
+  @@map("group_status")
+}
+
+enum RosterStatus {
+  draft
+  collecting
+  locked
+  completed
+  @@map("roster_status")
+}
+
+enum MemberStatus {
+  pending
+  completed
+  removed
+  @@map("member_status")
 }
 
 enum PaymentType {
-  deposit     // 입금
-  refund      // 환불
-  adjustment  // 차액 조정
+  deposit
+  refund
+  adjustment
+  @@map("payment_type")
+}
+
+enum PaymentStatus {
+  unpaid
+  paid
+  refunded
+  partial
+  @@map("payment_status")
+}
+
+enum InvitePurpose {
+  roster_entry
+  leader_only
+  @@map("invite_purpose")
+}
+
+// ===== TABLES =====
+
+// 1) 일정 슬롯 (일시/강사)
+model ReservationSlot {
+  slotId        String     @id @default(dbgenerated("gen_random_uuid()")) @map("slot_id") @db.Uuid
+  startAt       DateTime   @map("start_at") @db.Timestamptz
+  endAt         DateTime   @map("end_at") @db.Timestamptz
+  instructorId  String     @map("instructor_id") // 추후 instructor 테이블 생기면 관계 설정
+  status        SlotStatus @default(open)
+  createdAt     DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  groupPasses   GroupPass[]
+
+  @@index([startAt])
+  @@index([instructorId])
+  @@map("reservation_slot")
+}
+
+// 2) 대표 학부모 (컨택/결제 단일 창구)
+model Parent {
+  parentId          String   @id @default(dbgenerated("gen_random_uuid()")) @map("parent_id") @db.Uuid
+  name              String?
+  phone             String   @unique // E.164 권장
+  kakaoId           String?  @map("kakao_id")
+  cashReceiptNumber String?  @map("cash_receipt_number")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  ledGroups         GroupPass[] // 대표가 이끄는 그룹들
+
+  @@map("parent")
+}
+
+// 3) 그룹 이용권/한 팀
+model GroupPass {
+  groupId             String       @id @default(dbgenerated("gen_random_uuid()")) @map("group_id") @db.Uuid
+  slotId              String       @map("slot_id") @db.Uuid
+  leaderParentId      String       @map("leader_parent_id") @db.Uuid
+
+  headcountMin        Int          @default(2) @map("headcount_min") @db.SmallInt
+  headcountMax        Int          @default(6) @map("headcount_max") @db.SmallInt
+  headcountDeclared   Int?         @map("headcount_declared") @db.SmallInt
+  headcountFinal      Int?         @map("headcount_final") @db.SmallInt
+
+  rosterStatus        RosterStatus @default(draft) @map("roster_status")
+  status              GroupStatus  @default(pending_info)
+
+  memoToInstructor    String?      @map("memo_to_instructor")
+  naverReservationId  String?      @map("naver_reservation_id")
+  createdAt           DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relations
+  slot                ReservationSlot @relation(fields: [slotId], references: [slotId], onDelete: Restrict)
+  leader              Parent          @relation(fields: [leaderParentId], references: [parentId], onDelete: Restrict)
+  inviteLinks         InviteLink[]
+  groupMembers        GroupMember[]
+  payments            Payment[]
+
+  @@index([slotId])
+  @@index([leaderParentId])
+  @@index([status, rosterStatus])
+  @@map("group_pass")
+}
+
+// 4) 구성원 개별 입력 링크(토큰)
+model InviteLink {
+  inviteId    String        @id @default(dbgenerated("gen_random_uuid()")) @map("invite_id") @db.Uuid
+  groupId     String        @map("group_id") @db.Uuid
+  token       String        @unique
+  purpose     InvitePurpose @default(roster_entry)
+  expiresAt   DateTime?     @map("expires_at") @db.Timestamptz
+  maxUses     Int           @default(1) @map("max_uses")
+  usedCount   Int           @default(0) @map("used_count")
+  usedAt      DateTime?     @map("used_at") @db.Timestamptz
+  usedBy      String?       @map("used_by") // 입력자 식별(선택)
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz
+
+  group       GroupPass     @relation(fields: [groupId], references: [groupId], onDelete: Cascade)
+
+  @@index([groupId])
+  @@index([token])
+  @@map("invite_link")
+}
+
+// 5) 학생(자녀)
+model Child {
+  childId               String   @id @default(dbgenerated("gen_random_uuid()")) @map("child_id") @db.Uuid
+  name                  String
+  grade                 String?
+  priorStudentAttended  Boolean? @map("prior_student_attended")
+  siblingsPriorAttended Boolean? @map("siblings_prior_attended")
+  parentPriorAttended   Boolean? @map("parent_prior_attended")
+  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  groupMembers          GroupMember[]
+
+  @@map("child")
+}
+
+// 6) 그룹 참여자(그룹-학생 연결)
+model GroupMember {
+  groupMemberId     String       @id @default(dbgenerated("gen_random_uuid()")) @map("group_member_id") @db.Uuid
+  groupId           String       @map("group_id") @db.Uuid
+  childId           String       @map("child_id") @db.Uuid
+
+  // 구성원 학부모 정보(기록/긴급용)
+  parentName        String?      @map("parent_name")
+  parentPhone       String?      @map("parent_phone")
+
+  noteToInstructor  String?      @map("note_to_instructor")
+  editToken         String?      @unique @map("edit_token")
+  status            MemberStatus @default(pending)
+  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  group             GroupPass    @relation(fields: [groupId], references: [groupId], onDelete: Cascade)
+  child             Child        @relation(fields: [childId], references: [childId], onDelete: Restrict)
+
+  @@unique([groupId, childId]) // 같은 그룹에 같은 child 중복 방지
+  @@index([groupId])
+  @@index([status])
+  @@map("group_member")
+}
+
+// 7) 결제/환불/조정 트랜잭션
+model Payment {
+  paymentId   String        @id @default(dbgenerated("gen_random_uuid()")) @map("payment_id") @db.Uuid
+  groupId     String        @map("group_id") @db.Uuid
+  type        PaymentType   @default(deposit)
+  amount      BigInt        // 원 단위 (KRW)
+  occurredAt  DateTime      @default(now()) @map("occurred_at") @db.Timestamptz
+  payerName   String?       @map("payer_name")
+  memo        String?
+  status      PaymentStatus @default(paid)
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz
+
+  group       GroupPass     @relation(fields: [groupId], references: [groupId], onDelete: Cascade)
+
+  @@index([groupId])
+  @@index([occurredAt])
+  @@map("payment")
 }
