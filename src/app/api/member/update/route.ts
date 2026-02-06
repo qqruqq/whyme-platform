@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { normalizeNullablePhone } from '@/lib/phone';
 import { z } from 'zod';
 
 const memberUpdateSchema = z.object({
@@ -72,7 +73,10 @@ export async function PATCH(request: Request) {
                 where: { groupMemberId: member.groupMemberId },
                 data: {
                     parentName: data.parentName,
-                    parentPhone: data.parentPhone,
+                    parentPhone:
+                        data.parentPhone === undefined
+                            ? undefined
+                            : normalizeNullablePhone(data.parentPhone),
                     noteToInstructor: data.noteToInstructor,
                 },
             });

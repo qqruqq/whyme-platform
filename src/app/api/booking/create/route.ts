@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { normalizePhoneDigits } from '@/lib/phone';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid'; // random UUID for invite token
 
@@ -26,6 +27,7 @@ export async function POST(request: Request) {
         }
 
         const { slotId, leaderName, leaderPhone, cashReceiptNumber, headcountDeclared } = validation.data;
+        const normalizedLeaderPhone = normalizePhoneDigits(leaderPhone);
 
         // 2. 슬롯 존재 여부 확인
         const slot = await prisma.reservationSlot.findUnique({
@@ -44,14 +46,14 @@ export async function POST(request: Request) {
             // 3-1. 대표자(Parent) Upsert
             // 전화번호가 같으면 기존 정보 업데이트(이름 등), 없으면 생성
             const parent = await tx.parent.upsert({
-                where: { phone: leaderPhone },
+                where: { phone: normalizedLeaderPhone },
                 update: {
                     name: leaderName,
                     cashReceiptNumber: cashReceiptNumber || undefined, // 값이 있을 때만 업데이트
                 },
                 create: {
                     name: leaderName,
-                    phone: leaderPhone,
+                    phone: normalizedLeaderPhone,
                     cashReceiptNumber,
                 },
             });
@@ -101,4 +103,3 @@ export async function POST(request: Request) {
         );
     }
 }
-

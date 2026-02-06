@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { normalizeNullablePhone } from '@/lib/phone';
+import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -19,6 +21,15 @@ const inviteSubmitSchema = z.object({
     noteToInstructor: z.string().optional(),
 });
 
+class ApiError extends Error {
+    status: number;
+
+    constructor(status: number, message: string) {
+        super(message);
+        this.status = status;
+    }
+}
+
 export async function POST(request: Request) {
     try {
         const body = await request.json();
@@ -35,44 +46,47 @@ export async function POST(request: Request) {
         // Zod 파싱 결과
         const data = validation.data;
 
-        // 2. 초대 토큰 조회
-        const invite = await prisma.inviteLink.findUnique({
-            where: { token: data.token },
-            include: { group: true },
-        });
-
-        // 2-1. 토큰 존재 여부
-        if (!invite) {
-            return NextResponse.json({ error: 'Invalid token' }, { status: 404 });
-        }
-
-        // 2-2. 용도 확인 (roster_entry)
-        if (invite.purpose !== 'roster_entry') {
-            return NextResponse.json({ error: 'Invalid token purpose' }, { status: 403 });
-        }
-
-        // 2-3. 만료 확인
-        if (invite.expiresAt && new Date() > invite.expiresAt) {
-            return NextResponse.json({ error: 'Token expired' }, { status: 410 });
-        }
-
-        // 2-4. 사용 횟수 확인
-        if (invite.usedCount >= invite.maxUses) {
-            return NextResponse.json({ error: 'Token already used' }, { status: 409 });
-        }
-
-        // 2-5. 그룹 Roster 상태 확인
-        if (invite.group.rosterStatus === 'locked') {
-            return NextResponse.json(
-                { error: 'Group roster is locked' },
-                { status: 409 }
-            );
-        }
-
-        // 3. 트랜잭션 수행 (Child 생성 -> Member 생성 -> Token 업데이트 -> 현재 인원 조회)
-        // 트랜잭션을 사용해 정합성 보장
+        // 트랜잭션 내에서 invite token 사용을 원자적으로 점유한다.
         const result = await prisma.$transaction(async (tx) => {
-            // 3-1. Child 생성
+            const invite = await tx.inviteLink.findUnique({
+                where: { token: data.token },
+                include: { group: true },
+            });
+
+            if (!invite) {
+                throw new ApiError(404, 'Invalid token');
+            }
+
+            if (invite.purpose !== 'roster_entry') {
+                throw new ApiError(403, 'Invalid token purpose');
+            }
+
+            const now = new Date();
+            if (invite.expiresAt && now > invite.expiresAt) {
+                throw new ApiError(410, 'Token expired');
+            }
+
+            if (invite.group.rosterStatus === 'locked') {
+                throw new ApiError(409, 'Group roster is locked');
+            }
+
+            const claimed = await tx.inviteLink.updateMany({
+                where: {
+                    inviteId: invite.inviteId,
+                    usedCount: { lt: invite.maxUses },
+                    OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+                },
+                data: {
+                    usedCount: { increment: 1 },
+                    usedAt: now,
+                    usedBy: data.parentName ? `Parent:${data.parentName}` : `Child:${data.childName}`,
+                },
+            });
+
+            if (claimed.count === 0) {
+                throw new ApiError(409, 'Token already used');
+            }
+
             const child = await tx.child.create({
                 data: {
                     name: data.childName,
@@ -90,37 +104,37 @@ export async function POST(request: Request) {
                     groupId: invite.groupId, // inviteLink가 group에 연결되어 있음
                     childId: child.childId,
                     parentName: data.parentName,
-                    parentPhone: data.parentPhone || null, // 빈 문자열이면 null 저장
+                    parentPhone: normalizeNullablePhone(data.parentPhone) ?? null,
                     noteToInstructor: data.noteToInstructor,
                     editToken: editToken, // 수정용 토큰 저장을 여기서 함
                     status: 'completed', // 입력 완료 상태
                 },
             });
 
-            // 3-3. InviteLink 업데이트
-            await tx.inviteLink.update({
-                where: { inviteId: invite.inviteId },
+            // 첫 등록 시 draft -> collecting 전환.
+            await tx.groupPass.updateMany({
+                where: {
+                    groupId: invite.groupId,
+                    rosterStatus: 'draft',
+                },
                 data: {
-                    usedCount: { increment: 1 },
-                    usedAt: new Date(),
-                    usedBy: `Child:${child.name}`, // 간단 식별자 기록
+                    rosterStatus: 'collecting',
                 },
             });
 
-            // 3-4. 현재 그룹에 등록된 전체 멤버 수 확인 (옵션: GroupPass.headcountFinal 업데이트 등)
             const currentCount = await tx.groupMember.count({
                 where: { groupId: invite.groupId },
             });
 
-            return { member, currentCount, editToken };
-        });
+            return { member, currentCount, editToken, groupId: invite.groupId };
+        }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
         const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
         const editUrl = `${baseUrl}/member/edit/${result.editToken}`;
 
         return NextResponse.json({
             success: true,
-            groupId: invite.groupId,
+            groupId: result.groupId,
             groupMemberId: result.member.groupMemberId,
             currentMemberCount: result.currentCount,
             editToken: result.editToken,
@@ -128,6 +142,10 @@ export async function POST(request: Request) {
         }, { status: 201 });
 
     } catch (error) {
+        if (error instanceof ApiError) {
+            return NextResponse.json({ error: error.message }, { status: error.status });
+        }
+
         console.error('Invite Submit Error:', error);
         return NextResponse.json(
             { error: 'Internal Server Error' },
