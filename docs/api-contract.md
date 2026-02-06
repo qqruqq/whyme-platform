@@ -11,27 +11,46 @@ Base URL:
 ## 1) POST `/api/booking/create`
 Creates:
 - `Parent` (upsert by normalized `leaderPhone`)
+- `ReservationSlot` resolve/create by `classDate + classTime + instructorName` when `slotId` is omitted
 - `GroupPass`
 - `InviteLink` (`purpose=leader_only`) as manage token
+- Optional leader first-member record (`Child`, `GroupMember`) when `childName` is provided
 
 ### Request
 ```json
 {
-  "slotId": "UUID",
+  "classDate": "2026-02-06",
+  "classTime": "15:30",
+  "instructorName": "김와이미",
+  "location": "서울 강남",
   "leaderName": "김와이",
   "leaderPhone": "010-1234-5678",
   "cashReceiptNumber": "010-1234-5678",
-  "headcountDeclared": 4
+  "headcountDeclared": 4,
+  "childName": "최띠옹",
+  "priorStudentAttended": false,
+  "siblingsPriorAttended": false,
+  "parentPriorAttended": false,
+  "noteToInstructor": "아이가 처음이라 천천히 부탁드립니다.",
+  "acquisitionChannel": "지인 추천"
 }
 ```
+
+Notes:
+- Backward compatible: `slotId` can still be sent directly.
+- If `slotId` is omitted, `classDate + classTime + instructorName` are required.
 
 ### Response (201)
 ```json
 {
   "success": true,
   "groupId": "UUID",
+  "slotId": "UUID",
   "manageToken": "UUID",
-  "manageUrl": "http://localhost:3000/manage/<manageToken>"
+  "manageUrl": "http://localhost:3000/manage/<manageToken>",
+  "initialMemberCreated": true,
+  "leaderEditToken": "UUID",
+  "leaderEditUrl": "http://localhost:3000/member/edit/<leaderEditToken>"
 }
 ```
 
@@ -169,4 +188,3 @@ Leader-facing manage query API.
 - `404` invalid token
 - `403` not a leader token
 - `410` token expired
-

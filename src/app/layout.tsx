@@ -1,8 +1,17 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+import { Gowun_Batang, Noto_Sans_KR } from 'next/font/google'
 import './globals.css'
 
-const inter = Inter({ subsets: ['latin'] })
+const notoSansKr = Noto_Sans_KR({
+    subsets: ['latin'],
+    variable: '--font-body',
+})
+
+const gowunBatang = Gowun_Batang({
+    subsets: ['latin'],
+    weight: ['400', '700'],
+    variable: '--font-display',
+})
 
 export const metadata: Metadata = {
     title: '와이미 소그룹 예약',
@@ -16,7 +25,7 @@ export default function RootLayout({
 }) {
     return (
         <html lang="ko">
-            <body className={inter.className}>{children}</body>
+            <body className={`${notoSansKr.variable} ${gowunBatang.variable}`}>{children}</body>
         </html>
     )
 }

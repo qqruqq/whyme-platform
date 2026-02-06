@@ -6,12 +6,41 @@ import { v4 as uuidv4 } from 'uuid'; // random UUID for invite token
 
 // 입력값 검증 스키마
 const bookingSchema = z.object({
-    slotId: z.string().min(1, "slotId is required"),
+    slotId: z.string().uuid().optional(),
+    classDate: z
+        .string()
+        .regex(/^\d{4}-\d{2}-\d{2}$/, "교육 일정(날짜) 형식이 올바르지 않습니다")
+        .optional(),
+    classTime: z
+        .string()
+        .regex(/^\d{2}:\d{2}$/, "교육 일정(시간) 형식이 올바르지 않습니다")
+        .optional(),
+    instructorName: z.string().min(1, "강사명을 입력해주세요").optional(),
+    location: z.string().min(1, "교육 장소를 선택해주세요").optional(),
     leaderName: z.string().min(1, "이름을 입력해주세요"),
     leaderPhone: z.string().regex(/^[0-9-]{10,13}$/, "유효한 전화번호 형식이 아닙니다"),
     cashReceiptNumber: z.string().optional(),
     headcountDeclared: z.number().int().min(2).max(6).default(2),
+    childName: z.string().min(1, "자녀 이름을 입력해주세요").optional(),
+    priorStudentAttended: z.boolean().optional(),
+    siblingsPriorAttended: z.boolean().optional(),
+    parentPriorAttended: z.boolean().optional(),
+    noteToInstructor: z.string().optional(),
+    acquisitionChannel: z.string().optional(),
+}).superRefine((data, ctx) => {
+    if (!data.slotId && !(data.classDate && data.classTime && data.instructorName)) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'slotId 또는 교육 일정/강사 정보가 필요합니다.',
+            path: ['slotId'],
+        });
+    }
 });
+
+function toClassStartAt(classDate: string, classTime: string): Date | null {
+    const date = new Date(`${classDate}T${classTime}:00`);
+    return Number.isNaN(date.getTime()) ? null : date;
+}
 
 export async function POST(request: Request) {
     try {
@@ -26,23 +55,78 @@ export async function POST(request: Request) {
             );
         }
 
-        const { slotId, leaderName, leaderPhone, cashReceiptNumber, headcountDeclared } = validation.data;
+        const {
+            slotId,
+            classDate,
+            classTime,
+            instructorName,
+            location,
+            leaderName,
+            leaderPhone,
+            cashReceiptNumber,
+            headcountDeclared,
+            childName,
+            priorStudentAttended,
+            siblingsPriorAttended,
+            parentPriorAttended,
+            noteToInstructor,
+            acquisitionChannel,
+        } = validation.data;
+
         const normalizedLeaderPhone = normalizePhoneDigits(leaderPhone);
+        const derivedStartAt =
+            !slotId && classDate && classTime ? toClassStartAt(classDate, classTime) : null;
 
-        // 2. 슬롯 존재 여부 확인
-        const slot = await prisma.reservationSlot.findUnique({
-            where: { slotId }, // 스키마 변경: id -> slotId
-        });
-
-        if (!slot) {
+        if (!slotId && !derivedStartAt) {
             return NextResponse.json(
-                { error: 'Reservation slot not found' },
-                { status: 404 }
+                { error: 'Invalid schedule format' },
+                { status: 400 }
             );
         }
 
         // 3. 트랜잭션으로 처리 (Parent -> GroupPass -> InviteLink)
         const result = await prisma.$transaction(async (tx) => {
+            let resolvedSlot;
+
+            if (slotId) {
+                resolvedSlot = await tx.reservationSlot.findUnique({
+                    where: { slotId },
+                });
+            } else {
+                const minuteWindowStart = new Date((derivedStartAt as Date).getTime() - 30 * 1000);
+                const minuteWindowEnd = new Date((derivedStartAt as Date).getTime() + 30 * 1000);
+
+                resolvedSlot = await tx.reservationSlot.findFirst({
+                    where: {
+                        instructorId: instructorName as string,
+                        startAt: {
+                            gte: minuteWindowStart,
+                            lte: minuteWindowEnd,
+                        },
+                    },
+                });
+
+                if (!resolvedSlot) {
+                    const defaultDurationMinutes = 120;
+                    const computedEndAt = new Date(
+                        (derivedStartAt as Date).getTime() + defaultDurationMinutes * 60 * 1000
+                    );
+
+                    resolvedSlot = await tx.reservationSlot.create({
+                        data: {
+                            startAt: derivedStartAt as Date,
+                            endAt: computedEndAt,
+                            instructorId: (instructorName as string).trim(),
+                            status: 'open',
+                        },
+                    });
+                }
+            }
+
+            if (!resolvedSlot) {
+                throw new Error('Reservation slot not found');
+            }
+
             // 3-1. 대표자(Parent) Upsert
             // 전화번호가 같으면 기존 정보 업데이트(이름 등), 없으면 생성
             const parent = await tx.parent.upsert({
@@ -58,14 +142,20 @@ export async function POST(request: Request) {
                 },
             });
 
+            const groupMemoLines = [
+                location ? `교육 장소: ${location}` : null,
+                acquisitionChannel ? `유입 경로: ${acquisitionChannel}` : null,
+            ].filter(Boolean) as string[];
+
             // 3-2. GroupPass 생성
             const groupPass = await tx.groupPass.create({
                 data: {
-                    slotId,
+                    slotId: resolvedSlot.slotId,
                     leaderParentId: parent.parentId,
                     headcountDeclared,
                     status: 'pending_info',
-                    rosterStatus: 'draft',
+                    rosterStatus: childName ? 'collecting' : 'draft',
+                    memoToInstructor: groupMemoLines.length > 0 ? groupMemoLines.join('\n') : null,
                 },
             });
 
@@ -81,18 +171,53 @@ export async function POST(request: Request) {
                 }
             });
 
-            return { groupPass, leaderLink };
+            let leaderMember: { editToken: string } | null = null;
+
+            if (childName) {
+                const child = await tx.child.create({
+                    data: {
+                        name: childName,
+                        priorStudentAttended,
+                        siblingsPriorAttended,
+                        parentPriorAttended,
+                    },
+                });
+
+                const editToken = uuidv4();
+                await tx.groupMember.create({
+                    data: {
+                        groupId: groupPass.groupId,
+                        childId: child.childId,
+                        parentName: leaderName,
+                        parentPhone: normalizedLeaderPhone,
+                        noteToInstructor: noteToInstructor || null,
+                        editToken,
+                        status: 'completed',
+                    },
+                });
+
+                leaderMember = { editToken };
+            }
+
+            return { groupPass, leaderLink, resolvedSlot, leaderMember };
         });
 
         // 4. 응답 구성
         const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
         const manageUrl = `${baseUrl}/manage/${result.leaderLink.token}`; // manageToken = inviteLink.token
+        const leaderEditUrl = result.leaderMember
+            ? `${baseUrl}/member/edit/${result.leaderMember.editToken}`
+            : null;
 
         return NextResponse.json({
             success: true,
             groupId: result.groupPass.groupId,
+            slotId: result.resolvedSlot.slotId,
             manageToken: result.leaderLink.token, // 이것이 곧 링크 접속용 토큰
             manageUrl,
+            initialMemberCreated: Boolean(result.leaderMember),
+            leaderEditToken: result.leaderMember?.editToken ?? null,
+            leaderEditUrl,
         }, { status: 201 });
 
     } catch (error) {
