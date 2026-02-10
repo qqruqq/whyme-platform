@@ -1,15 +1,16 @@
 import type { Metadata } from 'next'
-import { Gowun_Batang, Noto_Sans_KR } from 'next/font/google'
+import { Gowun_Dodum, IBM_Plex_Sans_KR } from 'next/font/google'
 import './globals.css'
 
-const notoSansKr = Noto_Sans_KR({
+const ibmPlexSansKr = IBM_Plex_Sans_KR({
     subsets: ['latin'],
+    weight: ['400', '500', '600', '700'],
     variable: '--font-body',
 })
 
-const gowunBatang = Gowun_Batang({
+const gowunDodum = Gowun_Dodum({
     subsets: ['latin'],
-    weight: ['400', '700'],
+    weight: ['400'],
     variable: '--font-display',
 })
 
@@ -25,7 +26,7 @@ export default function RootLayout({
 }) {
     return (
         <html lang="ko">
-            <body className={`${notoSansKr.variable} ${gowunBatang.variable}`}>{children}</body>
+            <body className={`${ibmPlexSansKr.variable} ${gowunDodum.variable}`}>{children}</body>
         </html>
     )
 }

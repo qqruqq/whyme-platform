@@ -8,10 +8,10 @@ type YesNo = 'yes' | 'no' | ''
 
 type BookingForm = {
     classDate: string
-    classTime: string
+    classHour: string
+    classMinute: string
     instructorName: string
     location: string
-    locationEtc: string
     leaderName: string
     leaderPhone: string
     cashReceiptNumber: string
@@ -45,10 +45,10 @@ type BookingErrorPayload = {
 
 const INITIAL_FORM: BookingForm = {
     classDate: '',
-    classTime: '',
+    classHour: '',
+    classMinute: '',
     instructorName: '',
     location: '',
-    locationEtc: '',
     leaderName: '',
     leaderPhone: '',
     cashReceiptNumber: '',
@@ -62,8 +62,18 @@ const INITIAL_FORM: BookingForm = {
     acquisitionEtc: '',
 }
 
-const LOCATION_OPTIONS = ['서울 강남', '서울 목동', '서울 잠실', '기타']
-const CHANNEL_OPTIONS = ['지인 추천', '학교/기관 안내', '인스타그램', '네이버 검색', '기타']
+const HOURS = Array.from({ length: 24 }, (_, hour) => String(hour).padStart(2, '0'))
+const MINUTES = ['00', '30']
+const LOCATION_OPTIONS = ['와이미 교육센터', '광주', '대전/세종', '부산', '제주']
+const CHANNEL_OPTIONS = [
+    '유튜브 채널',
+    'SNS (인스타그램 등)',
+    '네이버 검색 (블로그 등)',
+    '지인추천',
+    '학교/기관 안내',
+    '도서/방송',
+    '기타',
+]
 
 function digitsOnly(value: string): string {
     return value.replace(/\D/g, '')
@@ -97,6 +107,43 @@ function parseError(payload: unknown): string {
     return maybeError.error ?? '요청 처리 중 오류가 발생했습니다.'
 }
 
+type YesNoFieldProps = {
+    legend: string
+    name: string
+    value: YesNo
+    onChange: (next: YesNo) => void
+}
+
+function YesNoField({ legend, name, value, onChange }: YesNoFieldProps) {
+    return (
+        <fieldset className={styles.questionCard}>
+            <legend>{legend}</legend>
+            <div className={styles.choiceRow}>
+                <label className={value === 'yes' ? styles.choiceActive : styles.choice}>
+                    <input
+                        type="radio"
+                        name={name}
+                        value="yes"
+                        checked={value === 'yes'}
+                        onChange={() => onChange('yes')}
+                    />
+                    네, 있어요
+                </label>
+                <label className={value === 'no' ? styles.choiceActive : styles.choice}>
+                    <input
+                        type="radio"
+                        name={name}
+                        value="no"
+                        checked={value === 'no'}
+                        onChange={() => onChange('no')}
+                    />
+                    아니요
+                </label>
+            </div>
+        </fieldset>
+    )
+}
+
 export default function BookingPage() {
     const [form, setForm] = useState<BookingForm>(INITIAL_FORM)
     const [submitting, setSubmitting] = useState(false)
@@ -104,14 +151,14 @@ export default function BookingPage() {
     const [result, setResult] = useState<BookingSuccess | null>(null)
     const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle')
 
-    const resolvedLocation = form.location === '기타' ? form.locationEtc.trim() : form.location
+    const resolvedLocation = form.location
     const resolvedChannel = form.acquisitionChannel === '기타' ? form.acquisitionEtc.trim() : form.acquisitionChannel
-    const slotPreview = `${form.classDate || 'YYYY-MM-DD'}-${form.classTime || 'HH:mm'}-${form.instructorName.trim() || '강사명'}`
 
     const canSubmit = useMemo(() => {
         return Boolean(
             form.classDate &&
-                form.classTime &&
+                form.classHour &&
+                form.classMinute &&
                 form.instructorName.trim() &&
                 resolvedLocation &&
                 form.leaderName.trim() &&
@@ -124,7 +171,8 @@ export default function BookingPage() {
         )
     }, [
         form.classDate,
-        form.classTime,
+        form.classHour,
+        form.classMinute,
         form.instructorName,
         resolvedLocation,
         form.leaderName,
@@ -147,7 +195,7 @@ export default function BookingPage() {
 
         const payload = {
             classDate: form.classDate,
-            classTime: form.classTime,
+            classTime: `${form.classHour}:${form.classMinute}`,
             instructorName: form.instructorName.trim(),
             location: resolvedLocation,
             leaderName: form.leaderName.trim(),
@@ -197,298 +245,271 @@ export default function BookingPage() {
     }
 
     return (
-        <main className={styles.shell}>
+        <main className={styles.page}>
             <section className={styles.hero}>
-                <div className={styles.petalA} />
-                <div className={styles.petalB} />
-                <div className={styles.petalC} />
-                <p className={styles.eyebrow}>대표 학부모 입력 페이지</p>
-                <h1 className={`font-display ${styles.title}`}>신청 정보 입력</h1>
-                <p className={styles.description}>
-                    아래 내용을 입력해 주세요. 교육 일정과 강사명으로 슬롯이 자동 연결되고, 등록이 끝나면 관리 링크가 발급됩니다.
+                <div className={styles.heroGlowA} />
+                <div className={styles.heroGlowB} />
+                <p className={styles.heroBadge}>WhyMe Booking</p>
+                <h1 className={`font-display ${styles.heroTitle}`}>대표 학부모 신청 정보 입력</h1>
+                <p className={styles.heroDescription}>
+                    신청 정보를 입력하면 바로 관리 링크가 발급됩니다. 이후 팀원 초대와 명단 확인을 이어서 진행할 수 있습니다.
                 </p>
                 <Link href="/" className={styles.backLink}>
                     홈으로 돌아가기
                 </Link>
             </section>
 
-            <section className={styles.formCard}>
-                <form onSubmit={onSubmit} className={styles.form}>
-                    <div className={styles.row}>
+            <section className={styles.layout}>
+                <form onSubmit={onSubmit} className={styles.formPanel}>
+                    <section className={styles.block}>
+                        <h2 className={styles.blockTitle}>교육 정보</h2>
+                        <div className={styles.gridTwo}>
+                            <label className={styles.field}>
+                                <span>교육 일정 (날짜)</span>
+                                <input
+                                    required
+                                    type="date"
+                                    value={form.classDate}
+                                    onChange={(event) => setForm((prev) => ({ ...prev, classDate: event.target.value }))}
+                                />
+                            </label>
+                            <label className={styles.field}>
+                                <span>교육 일정 (시간)</span>
+                                <div className={styles.timePicker}>
+                                    <select
+                                        required
+                                        value={form.classHour}
+                                        onChange={(event) =>
+                                            setForm((prev) => ({ ...prev, classHour: event.target.value }))
+                                        }
+                                    >
+                                        <option value="">시</option>
+                                        {HOURS.map((hour) => (
+                                            <option key={hour} value={hour}>
+                                                {hour}시
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <select
+                                        required
+                                        value={form.classMinute}
+                                        onChange={(event) =>
+                                            setForm((prev) => ({ ...prev, classMinute: event.target.value }))
+                                        }
+                                    >
+                                        <option value="">분</option>
+                                        {MINUTES.map((minute) => (
+                                            <option key={minute} value={minute}>
+                                                {minute}분
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </label>
+                        </div>
+
                         <label className={styles.field}>
-                            <span>교육 일정 (날짜)</span>
+                            <span>강사명</span>
                             <input
                                 required
-                                type="date"
-                                value={form.classDate}
-                                onChange={(event) => setForm((prev) => ({ ...prev, classDate: event.target.value }))}
+                                value={form.instructorName}
+                                onChange={(event) => setForm((prev) => ({ ...prev, instructorName: event.target.value }))}
+                                placeholder="예: 김와이미 강사"
                             />
                         </label>
 
                         <label className={styles.field}>
-                            <span>교육 일정 (시간)</span>
-                            <input
-                                required
-                                type="time"
-                                value={form.classTime}
-                                onChange={(event) => setForm((prev) => ({ ...prev, classTime: event.target.value }))}
-                            />
-                        </label>
-                    </div>
-
-                    <label className={styles.field}>
-                        <span>강사명</span>
-                        <input
-                            required
-                            value={form.instructorName}
-                            onChange={(event) => setForm((prev) => ({ ...prev, instructorName: event.target.value }))}
-                            placeholder="예: 김와이미 강사"
-                        />
-                    </label>
-
-                    <label className={styles.field}>
-                        <span>자동 생성 슬롯 키</span>
-                        <input value={slotPreview} readOnly className={styles.readOnlyInput} />
-                    </label>
-
-                    <label className={styles.field}>
-                        <span>교육장소 선택</span>
-                        <select
-                            required
-                            value={form.location}
-                            onChange={(event) => setForm((prev) => ({ ...prev, location: event.target.value }))}
-                        >
-                            <option value="">선택해 주세요</option>
-                            {LOCATION_OPTIONS.map((option) => (
-                                <option key={option} value={option}>
-                                    {option}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
-
-                    {form.location === '기타' ? (
-                        <label className={styles.field}>
-                            <span>교육장소 직접 입력</span>
-                            <input
-                                required
-                                value={form.locationEtc}
-                                onChange={(event) => setForm((prev) => ({ ...prev, locationEtc: event.target.value }))}
-                                placeholder="교육 장소를 입력해 주세요"
-                            />
-                        </label>
-                    ) : null}
-
-                    <div className={styles.row}>
-                        <label className={styles.field}>
-                            <span>대표 학부모 이름</span>
-                            <input
-                                required
-                                value={form.leaderName}
-                                onChange={(event) => setForm((prev) => ({ ...prev, leaderName: event.target.value }))}
-                                placeholder="이름 입력"
-                            />
-                        </label>
-
-                        <label className={styles.field}>
-                            <span>대표 연락처</span>
-                            <input
-                                required
-                                inputMode="numeric"
-                                value={form.leaderPhone}
-                                onChange={(event) =>
-                                    setForm((prev) => ({
-                                        ...prev,
-                                        leaderPhone: formatPhone(event.target.value),
-                                    }))
-                                }
-                                placeholder="010-1234-5678"
-                            />
-                        </label>
-                    </div>
-
-                    <div className={styles.row}>
-                        <label className={styles.field}>
-                            <span>현금영수증 번호 (선택)</span>
-                            <input
-                                inputMode="numeric"
-                                value={form.cashReceiptNumber}
-                                onChange={(event) =>
-                                    setForm((prev) => ({
-                                        ...prev,
-                                        cashReceiptNumber: formatPhone(event.target.value),
-                                    }))
-                                }
-                                placeholder="010-0000-0000"
-                            />
-                        </label>
-
-                        <label className={styles.field}>
-                            <span>예상 참여 인원</span>
+                            <span>교육장소 선택</span>
                             <select
-                                value={form.headcountDeclared}
-                                onChange={(event) =>
-                                    setForm((prev) => ({
-                                        ...prev,
-                                        headcountDeclared: Number(event.target.value),
-                                    }))
-                                }
+                                required
+                                value={form.location}
+                                onChange={(event) => setForm((prev) => ({ ...prev, location: event.target.value }))}
                             >
-                                {[2, 3, 4, 5, 6].map((count) => (
-                                    <option key={count} value={count}>
-                                        {count}명
+                                <option value="">선택해 주세요</option>
+                                {LOCATION_OPTIONS.map((option) => (
+                                    <option key={option} value={option}>
+                                        {option}
                                     </option>
                                 ))}
                             </select>
                         </label>
-                    </div>
 
-                    <label className={styles.field}>
-                        <span>자녀 이름</span>
-                        <input
-                            required
-                            value={form.childName}
-                            onChange={(event) => setForm((prev) => ({ ...prev, childName: event.target.value }))}
-                            placeholder="교육에 참여하는 자녀 이름"
-                        />
-                    </label>
+                    </section>
 
-                    <fieldset className={styles.questionBlock}>
-                        <legend>교육에 참여하는 학생이 학교 성교육 외 별도 성교육 경험(와이미 포함)이 있나요?</legend>
-                        <div className={styles.radioRow}>
-                            <label>
+                    <section className={styles.block}>
+                        <h2 className={styles.blockTitle}>대표 학부모 정보</h2>
+                        <div className={styles.gridTwo}>
+                            <label className={styles.field}>
+                                <span>대표 학부모 이름</span>
                                 <input
-                                    type="radio"
-                                    name="priorStudentAttended"
-                                    value="yes"
-                                    checked={form.priorStudentAttended === 'yes'}
-                                    onChange={() => setForm((prev) => ({ ...prev, priorStudentAttended: 'yes' }))}
+                                    required
+                                    value={form.leaderName}
+                                    onChange={(event) => setForm((prev) => ({ ...prev, leaderName: event.target.value }))}
+                                    placeholder="이름 입력"
                                 />
-                                예
                             </label>
-                            <label>
+                            <label className={styles.field}>
+                                <span>대표 연락처</span>
                                 <input
-                                    type="radio"
-                                    name="priorStudentAttended"
-                                    value="no"
-                                    checked={form.priorStudentAttended === 'no'}
-                                    onChange={() => setForm((prev) => ({ ...prev, priorStudentAttended: 'no' }))}
+                                    required
+                                    inputMode="numeric"
+                                    value={form.leaderPhone}
+                                    onChange={(event) =>
+                                        setForm((prev) => ({
+                                            ...prev,
+                                            leaderPhone: formatPhone(event.target.value),
+                                        }))
+                                    }
+                                    placeholder="010-1234-5678"
                                 />
-                                아니오
                             </label>
                         </div>
-                    </fieldset>
 
-                    <fieldset className={styles.questionBlock}>
-                        <legend>교육에 참여하는 학생의 형제/자매가 와이미 성교육 경험이 있나요?</legend>
-                        <div className={styles.radioRow}>
-                            <label>
+                        <div className={styles.gridTwo}>
+                            <label className={styles.field}>
+                                <span>현금영수증 번호 (선택)</span>
                                 <input
-                                    type="radio"
-                                    name="siblingsPriorAttended"
-                                    value="yes"
-                                    checked={form.siblingsPriorAttended === 'yes'}
-                                    onChange={() => setForm((prev) => ({ ...prev, siblingsPriorAttended: 'yes' }))}
+                                    inputMode="numeric"
+                                    value={form.cashReceiptNumber}
+                                    onChange={(event) =>
+                                        setForm((prev) => ({
+                                            ...prev,
+                                            cashReceiptNumber: formatPhone(event.target.value),
+                                        }))
+                                    }
+                                    placeholder="010-0000-0000"
                                 />
-                                예
                             </label>
-                            <label>
-                                <input
-                                    type="radio"
-                                    name="siblingsPriorAttended"
-                                    value="no"
-                                    checked={form.siblingsPriorAttended === 'no'}
-                                    onChange={() => setForm((prev) => ({ ...prev, siblingsPriorAttended: 'no' }))}
-                                />
-                                아니오
-                            </label>
-                        </div>
-                    </fieldset>
-
-                    <fieldset className={styles.questionBlock}>
-                        <legend>교육에 참여하는 학생의 부모님이 학교 성교육 외 별도 성교육 경험(와이미 포함)이 있나요?</legend>
-                        <div className={styles.radioRow}>
-                            <label>
-                                <input
-                                    type="radio"
-                                    name="parentPriorAttended"
-                                    value="yes"
-                                    checked={form.parentPriorAttended === 'yes'}
-                                    onChange={() => setForm((prev) => ({ ...prev, parentPriorAttended: 'yes' }))}
-                                />
-                                예
-                            </label>
-                            <label>
-                                <input
-                                    type="radio"
-                                    name="parentPriorAttended"
-                                    value="no"
-                                    checked={form.parentPriorAttended === 'no'}
-                                    onChange={() => setForm((prev) => ({ ...prev, parentPriorAttended: 'no' }))}
-                                />
-                                아니오
+                            <label className={styles.field}>
+                                <span>예상 참여 인원</span>
+                                <select
+                                    value={form.headcountDeclared}
+                                    onChange={(event) =>
+                                        setForm((prev) => ({
+                                            ...prev,
+                                            headcountDeclared: Number(event.target.value),
+                                        }))
+                                    }
+                                >
+                                    {[2, 3, 4, 5, 6].map((count) => (
+                                        <option key={count} value={count}>
+                                            {count}명
+                                        </option>
+                                    ))}
+                                </select>
                             </label>
                         </div>
-                    </fieldset>
+                    </section>
 
-                    <label className={styles.field}>
-                        <span>강사님에게 전달할 사항</span>
-                        <textarea
-                            rows={4}
-                            value={form.noteToInstructor}
-                            onChange={(event) => setForm((prev) => ({ ...prev, noteToInstructor: event.target.value }))}
-                            placeholder="예: 아이가 처음이라 천천히 진행 부탁드립니다."
-                        />
-                    </label>
-
-                    <label className={styles.field}>
-                        <span>와이미를 알게된 경로</span>
-                        <select
-                            required
-                            value={form.acquisitionChannel}
-                            onChange={(event) => setForm((prev) => ({ ...prev, acquisitionChannel: event.target.value }))}
-                        >
-                            <option value="">선택해 주세요</option>
-                            {CHANNEL_OPTIONS.map((option) => (
-                                <option key={option} value={option}>
-                                    {option}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
-
-                    {form.acquisitionChannel === '기타' ? (
+                    <section className={styles.block}>
+                        <h2 className={styles.blockTitle}>학생 정보</h2>
                         <label className={styles.field}>
-                            <span>경로 직접 입력</span>
+                            <span>자녀 이름</span>
                             <input
                                 required
-                                value={form.acquisitionEtc}
-                                onChange={(event) =>
-                                    setForm((prev) => ({ ...prev, acquisitionEtc: event.target.value }))
-                                }
-                                placeholder="알게 된 경로를 입력해 주세요"
+                                value={form.childName}
+                                onChange={(event) => setForm((prev) => ({ ...prev, childName: event.target.value }))}
+                                placeholder="교육에 참여하는 자녀 이름"
                             />
                         </label>
-                    ) : null}
+
+                        <YesNoField
+                            legend="교육에 참여하는 학생이 학교 성교육 외 별도의 성교육 경험(와이미 포함)이 있나요?"
+                            name="priorStudentAttended"
+                            value={form.priorStudentAttended}
+                            onChange={(next) => setForm((prev) => ({ ...prev, priorStudentAttended: next }))}
+                        />
+
+                        <YesNoField
+                            legend="교육에 참여하는 학생의 형제/자매가 와이미 성교육 경험이 있나요?"
+                            name="siblingsPriorAttended"
+                            value={form.siblingsPriorAttended}
+                            onChange={(next) => setForm((prev) => ({ ...prev, siblingsPriorAttended: next }))}
+                        />
+
+                        <YesNoField
+                            legend="교육에 참여하는 학생의 부모님이 학교 성교육 외 별도의 성교육 경험(와이미 포함)이 있나요?"
+                            name="parentPriorAttended"
+                            value={form.parentPriorAttended}
+                            onChange={(next) => setForm((prev) => ({ ...prev, parentPriorAttended: next }))}
+                        />
+                    </section>
+
+                    <section className={styles.block}>
+                        <h2 className={styles.blockTitle}>추가 정보</h2>
+                        <label className={styles.field}>
+                            <span>강사님에게 전달할 사항</span>
+                            <div className={styles.noteGuide}>
+                                <p className={styles.noteGuideTitle}>교육 시 강사가 알아두어야 할 학생의 특이사항</p>
+                                <ul>
+                                    <li>ADHD 약을 복용하고 있어요. 다소 산만한 모습을 보일 수도 있으니 양해 부탁드려요.</li>
+                                    <li>이전 다른 교육에서 들었던 내용으로 인해, 성교육에 대한 거부감이 매우 커요.</li>
+                                    <li>어려서 아버지를 여읜 터라, 해당 부분만 언급 조심 부탁드려요.</li>
+                                    <li>학교에서 심한 장난과 성적인 욕설로 몇 번 문제를 겪었어요.</li>
+                                    <li>참석 아이들 모두 포경수술을 했어요.</li>
+                                </ul>
+                                <p className={styles.noteGuideTitle}>교육 시 집중 전달 또는 언급 자제 요청사항</p>
+                                <ul>
+                                    <li>세 명 모두 미디어 노출이 없어서 또래보다 어려요. 잘 맞춰서 교육 부탁드려요.</li>
+                                    <li>아이가 이성에 관심이 많습니다. SNS나 유튜브 등 미디어 이용 시 주의점 잘 알려주시면 좋겠어요.</li>
+                                    <li>좋아하는 사람에 대한 지켜야할 선과 책임감에 대해 콕 짚어주시기 바라요.</li>
+                                    <li>동성애를 무조건 존중해야 한다거나 성별을 선택할 수 있다는 내용 등은 원하지 않아요.</li>
+                                </ul>
+                            </div>
+                            <textarea
+                                rows={4}
+                                value={form.noteToInstructor}
+                                onChange={(event) => setForm((prev) => ({ ...prev, noteToInstructor: event.target.value }))}
+                                placeholder="강사님께 전달하고 싶은 내용을 자유롭게 작성해 주세요."
+                            />
+                        </label>
+
+                        <label className={styles.field}>
+                            <span>와이미를 알게된 경로</span>
+                            <select
+                                required
+                                value={form.acquisitionChannel}
+                                onChange={(event) => setForm((prev) => ({ ...prev, acquisitionChannel: event.target.value }))}
+                            >
+                                <option value="">선택해 주세요</option>
+                                {CHANNEL_OPTIONS.map((option) => (
+                                    <option key={option} value={option}>
+                                        {option}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+
+                        {form.acquisitionChannel === '기타' ? (
+                            <label className={styles.field}>
+                                <span>경로 직접 입력</span>
+                                <input
+                                    required
+                                    value={form.acquisitionEtc}
+                                    onChange={(event) =>
+                                        setForm((prev) => ({ ...prev, acquisitionEtc: event.target.value }))
+                                    }
+                                    placeholder="알게 된 경로를 입력해 주세요"
+                                />
+                            </label>
+                        ) : null}
+                    </section>
 
                     {error ? <p className={styles.errorText}>{error}</p> : null}
 
                     <button type="submit" disabled={!canSubmit || submitting} className={styles.submitButton}>
-                        {submitting ? '등록 중...' : '정보 등록하기'}
+                        {submitting ? '등록 중...' : '신청 정보 등록하기'}
                     </button>
                 </form>
 
-                <aside className={styles.resultPanel}>
-                    <h2 className={`font-display ${styles.resultTitle}`}>등록 결과</h2>
+                <aside className={styles.summaryPanel}>
+                    <h2 className={`font-display ${styles.summaryTitle}`}>등록 결과</h2>
                     {result ? (
                         <div className={styles.resultBox}>
-                            <p className={styles.resultMessage}>입력이 완료되었습니다. 관리 링크를 저장해 주세요.</p>
+                            <p className={styles.resultMessage}>입력이 완료되었습니다. 아래 관리 링크를 저장해 주세요.</p>
 
                             <p className={styles.resultLabel}>그룹 ID</p>
                             <p className={styles.resultValue}>{result.groupId}</p>
-
-                            <p className={styles.resultLabel}>연결된 슬롯 ID</p>
-                            <p className={styles.resultValue}>{result.slotId}</p>
 
                             <p className={styles.resultLabel}>관리 링크</p>
                             <a className={styles.resultLink} href={result.manageUrl}>
@@ -498,22 +519,15 @@ export default function BookingPage() {
                             <button type="button" className={styles.copyButton} onClick={onCopyManageUrl}>
                                 관리 링크 복사
                             </button>
+
                             {copyState === 'copied' ? <p className={styles.copyState}>클립보드에 복사했습니다.</p> : null}
                             {copyState === 'failed' ? <p className={styles.copyError}>복사에 실패했습니다. 직접 복사해 주세요.</p> : null}
-
-                            {result.leaderEditUrl ? (
-                                <>
-                                    <p className={styles.resultLabel}>대표 학부모 수정 링크</p>
-                                    <a className={styles.resultLink} href={result.leaderEditUrl}>
-                                        {result.leaderEditUrl}
-                                    </a>
-                                </>
-                            ) : null}
                         </div>
                     ) : (
-                        <p className={styles.placeholder}>
-                            입력을 완료하면 관리 링크와 슬롯 연결 결과가 표시됩니다.
-                        </p>
+                        <div className={styles.placeholderCard}>
+                            <p>신청을 완료하면 관리 링크가 여기에 표시됩니다.</p>
+                            <p>관리 링크에서 팀원 초대 링크를 만들 수 있습니다.</p>
+                        </div>
                     )}
                 </aside>
             </section>
