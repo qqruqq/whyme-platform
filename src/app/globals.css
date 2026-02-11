@@ -1,4 +1,6 @@
 :root {
+  --font-body: "Pretendard Variable", "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  --font-display: "Pretendard Variable", "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
   --color-ink: #3a2a20;
   --color-bg-soft: #fff9f1;
   --color-bg-panel: #fffefb;
@@ -24,7 +26,7 @@ body {
 }
 
 body {
-  font-family: var(--font-body), "IBM Plex Sans KR", "Apple SD Gothic Neo", sans-serif;
+  font-family: var(--font-body);
   color: var(--color-ink);
   letter-spacing: -0.01em;
   background:
@@ -39,5 +41,5 @@ a {
 }
 
 .font-display {
-  font-family: var(--font-display), "Gowun Dodum", "IBM Plex Sans KR", sans-serif;
+  font-family: var(--font-display);
 }

@@ -4,6 +4,15 @@ import { normalizePhoneDigits } from '@/lib/phone';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid'; // random UUID for invite token
 
+class ApiError extends Error {
+    status: number;
+
+    constructor(status: number, message: string) {
+        super(message);
+        this.status = status;
+    }
+}
+
 // 입력값 검증 스키마
 const bookingSchema = z.object({
     slotId: z.string().uuid().optional(),
@@ -15,7 +24,7 @@ const bookingSchema = z.object({
         .string()
         .regex(/^\d{2}:\d{2}$/, "교육 일정(시간) 형식이 올바르지 않습니다")
         .optional(),
-    instructorName: z.string().min(1, "강사명을 입력해주세요").optional(),
+    instructorName: z.string().trim().min(1, "강사명을 입력해주세요").optional(),
     location: z.string().min(1, "교육 장소를 선택해주세요").optional(),
     leaderName: z.string().min(1, "이름을 입력해주세요"),
     leaderPhone: z.string().regex(/^[0-9-]{10,13}$/, "유효한 전화번호 형식이 아닙니다"),
@@ -76,6 +85,7 @@ export async function POST(request: Request) {
         const normalizedLeaderPhone = normalizePhoneDigits(leaderPhone);
         const derivedStartAt =
             !slotId && classDate && classTime ? toClassStartAt(classDate, classTime) : null;
+        const normalizedInstructorName = instructorName?.trim();
 
         if (!slotId && !derivedStartAt) {
             return NextResponse.json(
@@ -92,13 +102,17 @@ export async function POST(request: Request) {
                 resolvedSlot = await tx.reservationSlot.findUnique({
                     where: { slotId },
                 });
+
+                if (!resolvedSlot) {
+                    throw new ApiError(404, 'Invalid slotId');
+                }
             } else {
                 const minuteWindowStart = new Date((derivedStartAt as Date).getTime() - 30 * 1000);
                 const minuteWindowEnd = new Date((derivedStartAt as Date).getTime() + 30 * 1000);
 
                 resolvedSlot = await tx.reservationSlot.findFirst({
                     where: {
-                        instructorId: instructorName as string,
+                        instructorId: normalizedInstructorName as string,
                         startAt: {
                             gte: minuteWindowStart,
                             lte: minuteWindowEnd,
@@ -116,7 +130,7 @@ export async function POST(request: Request) {
                         data: {
                             startAt: derivedStartAt as Date,
                             endAt: computedEndAt,
-                            instructorId: (instructorName as string).trim(),
+                            instructorId: normalizedInstructorName as string,
                             status: 'open',
                         },
                     });
@@ -221,6 +235,10 @@ export async function POST(request: Request) {
         }, { status: 201 });
 
     } catch (error) {
+        if (error instanceof ApiError) {
+            return NextResponse.json({ error: error.message }, { status: error.status });
+        }
+
         console.error('Booking Create Error:', error);
         return NextResponse.json(
             { error: 'Internal Server Error' },
