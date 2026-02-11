@@ -522,6 +522,15 @@ export default function BookingPage() {
 
                             {copyState === 'copied' ? <p className={styles.copyState}>클립보드에 복사했습니다.</p> : null}
                             {copyState === 'failed' ? <p className={styles.copyError}>복사에 실패했습니다. 직접 복사해 주세요.</p> : null}
+
+                            {result.leaderEditUrl ? (
+                                <>
+                                    <p className={styles.resultLabel}>대표 수정 링크</p>
+                                    <a className={styles.resultLink} href={result.leaderEditUrl}>
+                                        {result.leaderEditUrl}
+                                    </a>
+                                </>
+                            ) : null}
                         </div>
                     ) : (
                         <div className={styles.placeholderCard}>

@@ -188,3 +188,34 @@ Leader-facing manage query API.
 - `404` invalid token
 - `403` not a leader token
 - `410` token expired
+
+## 6) POST `/api/booking/lookup`
+Lookup previously created booking by schedule/instructor/leader phone.
+
+### Request
+```json
+{
+  "classDate": "2026-02-06",
+  "classTime": "15:30",
+  "instructorName": "김와이미",
+  "leaderPhone": "010-1234-5678"
+}
+```
+
+### Response (200)
+```json
+{
+  "success": true,
+  "groupId": "UUID",
+  "slotId": "UUID",
+  "status": "pending_info",
+  "rosterStatus": "collecting",
+  "manageToken": "UUID",
+  "manageUrl": "http://localhost:3000/manage/<manageToken>",
+  "leaderEditToken": "UUID",
+  "leaderEditUrl": "http://localhost:3000/member/edit/<leaderEditToken>"
+}
+```
+
+### Errors
+- `404` when no matching booking exists

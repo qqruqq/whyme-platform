@@ -16,6 +16,9 @@ export default function Home() {
                     <Link href="/booking" className={styles.primaryCta}>
                         예약 시작하기
                     </Link>
+                    <Link href="/booking/lookup" className={styles.secondaryCta}>
+                        예약 내역 조회
+                    </Link>
                 </div>
                 <p className={styles.note}>
                     예약 생성 후 발급되는 관리 링크로 팀원 초대 및 명단 상태를 확인할 수 있습니다.
