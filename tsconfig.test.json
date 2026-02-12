@@ -1,0 +1,21 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "incremental": false,
+    "outDir": ".test-dist",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "target": "es2020",
+    "lib": ["es2020"],
+    "types": ["node"],
+    "plugins": []
+  },
+  "include": [
+    "tests/**/*.ts",
+    "src/lib/api/**/*.ts",
+    "src/lib/phone.ts",
+    "src/lib/phone-validation.ts"
+  ],
+  "exclude": ["node_modules", ".next"]
+}

@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { ApiStatusError } from '@/lib/api/errors';
+import { isSerializationConflictError, shouldRetrySerializableError } from '@/lib/api/retry';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
@@ -10,15 +12,6 @@ const inviteCreateSchema = z.object({
     count: z.number().int().min(1).max(6).default(1),
     expiresInDays: z.number().int().min(1).max(90).default(14),
 });
-
-class ApiError extends Error {
-    status: number;
-
-    constructor(status: number, message: string) {
-        super(message);
-        this.status = status;
-    }
-}
 
 const MAX_SERIALIZABLE_RETRIES = 2;
 
@@ -50,21 +43,21 @@ export async function POST(request: Request) {
                     });
 
                     if (!leaderLink) {
-                        throw new ApiError(404, 'Invalid token');
+                        throw new ApiStatusError(404, 'Invalid token');
                     }
 
                     // 2-1. 권한(Purpose) 및 만료 체크
                     if (leaderLink.purpose !== 'leader_only') {
-                        throw new ApiError(403, 'Forbidden: Not a leader token');
+                        throw new ApiStatusError(403, 'Forbidden: Not a leader token');
                     }
 
                     if (leaderLink.expiresAt && new Date() > leaderLink.expiresAt) {
-                        throw new ApiError(410, 'Token expired');
+                        throw new ApiStatusError(410, 'Token expired');
                     }
 
                     // 2-2. 그룹 상태 체크 (Locked 상태면 초대 생성 불가)
                     if (leaderLink.group.rosterStatus === 'locked') {
-                        throw new ApiError(409, 'Roster is locked');
+                        throw new ApiStatusError(409, 'Roster is locked');
                     }
 
                     const newInvitesData = Array.from({ length: count }).map(() => ({
@@ -103,11 +96,7 @@ export async function POST(request: Request) {
                 groupId = result.groupId;
                 break;
             } catch (error) {
-                if (
-                    error instanceof Prisma.PrismaClientKnownRequestError &&
-                    error.code === 'P2034' &&
-                    attempt < MAX_SERIALIZABLE_RETRIES
-                ) {
+                if (shouldRetrySerializableError(error, attempt, MAX_SERIALIZABLE_RETRIES)) {
                     continue;
                 }
 
@@ -116,7 +105,7 @@ export async function POST(request: Request) {
         }
 
         if (!createdInvites || !groupId) {
-            throw new Error('Failed to create invites');
+            throw new ApiStatusError(503, 'Temporary concurrency issue. Please retry.');
         }
 
         // 4. 응답 구성
@@ -132,8 +121,15 @@ export async function POST(request: Request) {
         }, { status: 201 });
 
     } catch (error) {
-        if (error instanceof ApiError) {
+        if (error instanceof ApiStatusError) {
             return NextResponse.json({ error: error.message }, { status: error.status });
+        }
+
+        if (isSerializationConflictError(error)) {
+            return NextResponse.json(
+                { error: 'Temporary concurrency issue. Please retry.' },
+                { status: 503 }
+            );
         }
 
         console.error('Invite Create Error:', error);

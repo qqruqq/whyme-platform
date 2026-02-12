@@ -1,22 +1,13 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { normalizeNullablePhone, normalizePhoneDigits } from '@/lib/phone';
+import { ApiStatusError } from '@/lib/api/errors';
+import { assertInviteTokenClaimed } from '@/lib/api/guards';
+import { isSerializationConflictError, shouldRetrySerializableError } from '@/lib/api/retry';
+import { normalizeNullablePhone } from '@/lib/phone';
+import { isValidOptionalPhoneInput } from '@/lib/phone-validation';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
-
-function isValidOptionalPhone(value: string | undefined): boolean {
-    if (value === undefined || value === '') {
-        return true;
-    }
-
-    if (!/^[0-9\s\-()+]+$/.test(value)) {
-        return false;
-    }
-
-    const digits = normalizePhoneDigits(value);
-    return digits.length >= 10 && digits.length <= 11;
-}
 
 const inviteSubmitSchema = z.object({
     token: z.string().min(1, "Token is required"),
@@ -33,19 +24,10 @@ const inviteSubmitSchema = z.object({
         .string()
         .trim()
         .optional()
-        .refine(isValidOptionalPhone, '연락처는 숫자 10~11자리 형식이어야 합니다.'),
+        .refine(isValidOptionalPhoneInput, '연락처는 숫자 10~11자리 형식이어야 합니다.'),
 
     noteToInstructor: z.string().optional(),
 });
-
-class ApiError extends Error {
-    status: number;
-
-    constructor(status: number, message: string) {
-        super(message);
-        this.status = status;
-    }
-}
 
 const MAX_SERIALIZABLE_RETRIES = 2;
 
@@ -83,20 +65,20 @@ export async function POST(request: Request) {
                     });
 
                     if (!invite) {
-                        throw new ApiError(404, 'Invalid token');
+                        throw new ApiStatusError(404, 'Invalid token');
                     }
 
                     if (invite.purpose !== 'roster_entry') {
-                        throw new ApiError(403, 'Invalid token purpose');
+                        throw new ApiStatusError(403, 'Invalid token purpose');
                     }
 
                     const now = new Date();
                     if (invite.expiresAt && now > invite.expiresAt) {
-                        throw new ApiError(410, 'Token expired');
+                        throw new ApiStatusError(410, 'Token expired');
                     }
 
                     if (invite.group.rosterStatus === 'locked') {
-                        throw new ApiError(409, 'Group roster is locked');
+                        throw new ApiStatusError(409, 'Group roster is locked');
                     }
 
                     const claimed = await tx.inviteLink.updateMany({
@@ -112,9 +94,7 @@ export async function POST(request: Request) {
                         },
                     });
 
-                    if (claimed.count === 0) {
-                        throw new ApiError(409, 'Token already used');
-                    }
+                    assertInviteTokenClaimed(claimed.count);
 
                     const child = await tx.child.create({
                         data: {
@@ -160,11 +140,7 @@ export async function POST(request: Request) {
 
                 break;
             } catch (error) {
-                if (
-                    error instanceof Prisma.PrismaClientKnownRequestError &&
-                    error.code === 'P2034' &&
-                    attempt < MAX_SERIALIZABLE_RETRIES
-                ) {
+                if (shouldRetrySerializableError(error, attempt, MAX_SERIALIZABLE_RETRIES)) {
                     continue;
                 }
 
@@ -173,7 +149,7 @@ export async function POST(request: Request) {
         }
 
         if (!result) {
-            throw new Error('Invite submit failed after retries');
+            throw new ApiStatusError(503, 'Temporary concurrency issue. Please retry.');
         }
 
         const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
@@ -189,8 +165,15 @@ export async function POST(request: Request) {
         }, { status: 201 });
 
     } catch (error) {
-        if (error instanceof ApiError) {
+        if (error instanceof ApiStatusError) {
             return NextResponse.json({ error: error.message }, { status: error.status });
+        }
+
+        if (isSerializationConflictError(error)) {
+            return NextResponse.json(
+                { error: 'Temporary concurrency issue. Please retry.' },
+                { status: 503 }
+            );
         }
 
         console.error('Invite Submit Error:', error);

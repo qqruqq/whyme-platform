@@ -1,17 +1,10 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { ApiStatusError } from '@/lib/api/errors';
+import { assertBookingSlotExists } from '@/lib/api/guards';
 import { normalizePhoneDigits } from '@/lib/phone';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid'; // random UUID for invite token
-
-class ApiError extends Error {
-    status: number;
-
-    constructor(status: number, message: string) {
-        super(message);
-        this.status = status;
-    }
-}
 
 // 입력값 검증 스키마
 const bookingSchema = z.object({
@@ -103,9 +96,7 @@ export async function POST(request: Request) {
                     where: { slotId },
                 });
 
-                if (!resolvedSlot) {
-                    throw new ApiError(404, 'Invalid slotId');
-                }
+                assertBookingSlotExists(resolvedSlot);
             } else {
                 const minuteWindowStart = new Date((derivedStartAt as Date).getTime() - 30 * 1000);
                 const minuteWindowEnd = new Date((derivedStartAt as Date).getTime() + 30 * 1000);
@@ -235,7 +226,7 @@ export async function POST(request: Request) {
         }, { status: 201 });
 
     } catch (error) {
-        if (error instanceof ApiError) {
+        if (error instanceof ApiStatusError) {
             return NextResponse.json({ error: error.message }, { status: error.status });
         }
 

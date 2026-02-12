@@ -1,21 +1,12 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { normalizeNullablePhone, normalizePhoneDigits } from '@/lib/phone';
+import { ApiStatusError } from '@/lib/api/errors';
+import { assertMemberUpdateApplied } from '@/lib/api/guards';
+import { isSerializationConflictError, shouldRetrySerializableError } from '@/lib/api/retry';
+import { normalizeNullablePhone } from '@/lib/phone';
+import { isValidOptionalPhoneInput } from '@/lib/phone-validation';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
-
-function isValidOptionalPhone(value: string | undefined): boolean {
-    if (value === undefined || value === '') {
-        return true;
-    }
-
-    if (!/^[0-9\s\-()+]+$/.test(value)) {
-        return false;
-    }
-
-    const digits = normalizePhoneDigits(value);
-    return digits.length >= 10 && digits.length <= 11;
-}
 
 const memberUpdateSchema = z.object({
     editToken: z.string().min(1, "editToken is required"),
@@ -31,18 +22,9 @@ const memberUpdateSchema = z.object({
         .string()
         .trim()
         .optional()
-        .refine(isValidOptionalPhone, '연락처는 숫자 10~11자리 형식이어야 합니다.'),
+        .refine(isValidOptionalPhoneInput, '연락처는 숫자 10~11자리 형식이어야 합니다.'),
     noteToInstructor: z.string().optional(),
 });
-
-class ApiError extends Error {
-    status: number;
-
-    constructor(status: number, message: string) {
-        super(message);
-        this.status = status;
-    }
-}
 
 const MAX_SERIALIZABLE_RETRIES = 2;
 
@@ -74,12 +56,12 @@ export async function PATCH(request: Request) {
                     });
 
                     if (!member) {
-                        throw new ApiError(404, 'Invalid edit token');
+                        throw new ApiStatusError(404, 'Invalid edit token');
                     }
 
                     // 2-1. Roster Status 확인
                     if (member.group.rosterStatus === 'locked') {
-                        throw new ApiError(409, 'Roster is locked. Modifications are not allowed.');
+                        throw new ApiStatusError(409, 'Roster is locked. Modifications are not allowed.');
                     }
 
                     const childUpdateData: Prisma.ChildUpdateInput = {};
@@ -130,9 +112,7 @@ export async function PATCH(request: Request) {
                             data: memberUpdateData,
                         });
 
-                        if (updatedCount.count === 0) {
-                            throw new ApiError(409, 'Roster is locked. Modifications are not allowed.');
-                        }
+                        assertMemberUpdateApplied(updatedCount.count);
                     }
 
                     return {
@@ -142,11 +122,7 @@ export async function PATCH(request: Request) {
 
                 break;
             } catch (error) {
-                if (
-                    error instanceof Prisma.PrismaClientKnownRequestError &&
-                    error.code === 'P2034' &&
-                    attempt < MAX_SERIALIZABLE_RETRIES
-                ) {
+                if (shouldRetrySerializableError(error, attempt, MAX_SERIALIZABLE_RETRIES)) {
                     continue;
                 }
 
@@ -155,7 +131,7 @@ export async function PATCH(request: Request) {
         }
 
         if (!updatedMember) {
-            throw new Error('Member update failed after retries');
+            throw new ApiStatusError(503, 'Temporary concurrency issue. Please retry.');
         }
 
         return NextResponse.json({
@@ -165,8 +141,15 @@ export async function PATCH(request: Request) {
         });
 
     } catch (error) {
-        if (error instanceof ApiError) {
+        if (error instanceof ApiStatusError) {
             return NextResponse.json({ error: error.message }, { status: error.status });
+        }
+
+        if (isSerializationConflictError(error)) {
+            return NextResponse.json(
+                { error: 'Temporary concurrency issue. Please retry.' },
+                { status: 503 }
+            );
         }
 
         console.error('Member Update Error:', error);

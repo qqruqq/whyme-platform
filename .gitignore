@@ -31,3 +31,7 @@ ts-debug.log*
 
 # vercel
 .vercel
+
+# local test build output
+/.test-dist/
+tsconfig.tsbuildinfo

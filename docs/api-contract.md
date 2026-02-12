@@ -5,7 +5,8 @@ Base URL:
 - Link generation uses `NEXT_PUBLIC_BASE_URL` (fallback: `http://localhost:3000`)
 
 ## Data normalization
-- Phone inputs may include `-`, but the server stores digits only (e.g. `010-1234-5678` -> `01012345678`).
+- Phone inputs may include `-`, spaces, and parentheses, but the server stores digits only (e.g. `010-1234-5678` -> `01012345678`).
+- Optional phone inputs must resolve to 10~11 digits when provided.
 - `parentPhone` sent as empty string (`""`) is stored as `null`.
 
 ## 1) POST `/api/booking/create`
@@ -37,8 +38,9 @@ Creates:
 ```
 
 Notes:
-- Backward compatible: `slotId` can still be sent directly.
+- `slotId` can be sent directly.
 - If `slotId` is omitted, `classDate + classTime + instructorName` are required.
+- Instructor matching is trimmed (`"김와이미 "` and `"김와이미"` are treated the same).
 
 ### Response (201)
 ```json
@@ -53,6 +55,9 @@ Notes:
   "leaderEditUrl": "http://localhost:3000/member/edit/<leaderEditToken>"
 }
 ```
+
+### Errors
+- `404` invalid `slotId`
 
 ## 2) POST `/api/invite/create`
 Leader creates member invite links.
@@ -80,15 +85,19 @@ Leader creates member invite links.
 }
 ```
 
-### Error
+### Errors
+- `404` invalid token
+- `403` not a leader token
+- `410` token expired
 - `409` when `GroupPass.rosterStatus=locked`
+- `503` temporary concurrency issue (retryable)
 
 ## 3) POST `/api/invite/submit`
 Member submits roster entry.
 
 Behavior:
 - Invite token claim is atomic (race-safe).
-- Creates `Child`, `GroupMember(editToken 포함)`.
+- Creates `Child`, `GroupMember` (`editToken` included).
 - If `GroupPass.rosterStatus=draft`, it auto-transitions to `collecting` on first successful submit.
 
 ### Request
@@ -124,8 +133,39 @@ Behavior:
 - `410` token expired
 - `409` token already used
 - `409` group roster locked
+- `503` temporary concurrency issue (retryable)
 
-## 4) PATCH `/api/member/update`
+## 4) GET `/api/member/[editToken]`
+Fetch current member data for edit screen preload.
+
+### Response (200)
+```json
+{
+  "success": true,
+  "groupId": "UUID",
+  "groupMemberId": "UUID",
+  "rosterStatus": "collecting",
+  "isLocked": false,
+  "member": {
+    "childName": "최띠옹",
+    "childGrade": "초6",
+    "priorStudentAttended": false,
+    "siblingsPriorAttended": false,
+    "parentPriorAttended": false,
+    "parentName": "김학부모",
+    "parentPhone": "01000000000",
+    "noteToInstructor": "처음 참여합니다.",
+    "status": "completed",
+    "createdAt": "2026-02-04T09:00:00.000Z",
+    "updatedAt": "2026-02-04T09:00:00.000Z"
+  }
+}
+```
+
+### Errors
+- `404` invalid edit token
+
+## 5) PATCH `/api/member/update`
 Updates submitted member data by `editToken`.
 
 ### Request
@@ -149,8 +189,9 @@ Updates submitted member data by `editToken`.
 ### Errors
 - `404` invalid edit token
 - `409` when `GroupPass.rosterStatus=locked`
+- `503` temporary concurrency issue (retryable)
 
-## 5) GET `/api/manage/[leaderToken]`
+## 6) GET `/api/manage/[leaderToken]`
 Leader-facing manage query API.
 
 ### Response (200)
@@ -189,7 +230,7 @@ Leader-facing manage query API.
 - `403` not a leader token
 - `410` token expired
 
-## 6) POST `/api/booking/lookup`
+## 7) POST `/api/booking/lookup`
 Lookup previously created booking by schedule/instructor/leader phone.
 
 ### Request
