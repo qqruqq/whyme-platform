@@ -8,15 +8,15 @@ export default function Home() {
                 <div className={styles.glowA} />
                 <div className={styles.glowB} />
                 <p className={styles.badge}>WhyMe Platform</p>
-                <h1 className={`font-display ${styles.title}`}>와이미 소그룹 예약</h1>
+                <h1 className={`font-display ${styles.title}`}>와이미 소그룹 교육 정보입력</h1>
                 <p className={styles.subtitle}>
-                    대표 학부모가 그룹 예약을 생성하고, 이후 팀원 링크를 배포하는 내부 운영용 MVP입니다.
+                    대표 학부모가 예약한 교육일정에 대해 소그룹의 정보를 입력하는 페이지 입니다.
                 </p>
                 <div className={styles.ctaRow}>
-                    <Link href="/booking" className={styles.primaryCta}>
-                        예약 시작하기
+                    <Link href="/groupinfo" className={styles.primaryCta}>
+                        소그룹 정보 입력하기
                     </Link>
-                    <Link href="/booking/lookup" className={styles.secondaryCta}>
+                    <Link href="/groupinfo/lookup" className={styles.secondaryCta}>
                         예약 내역 조회
                     </Link>
                 </div>

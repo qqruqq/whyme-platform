@@ -52,13 +52,10 @@
   background: rgba(255, 255, 255, 0.94);
   box-shadow: var(--shadow-card);
   overflow: hidden;
-  display: grid;
-  grid-template-columns: 1fr;
 }
 
 .form {
   padding: clamp(16px, 3vw, 24px);
-  border-bottom: 1px solid rgba(241, 217, 196, 0.8);
   display: grid;
   gap: 12px;
 }
@@ -101,6 +98,16 @@
   gap: 8px;
 }
 
+.phoneRow {
+  display: grid;
+  grid-template-columns: 112px 1fr;
+  gap: 8px;
+}
+
+.phoneRowCustom {
+  grid-template-columns: 112px 102px 1fr;
+}
+
 .errorText {
   margin: 0;
   color: #b93f29;
@@ -125,89 +132,13 @@
   cursor: not-allowed;
 }
 
-.resultArea {
-  padding: clamp(16px, 3vw, 24px);
-  background: linear-gradient(165deg, rgba(255, 255, 255, 0.95), rgba(255, 247, 236, 0.94));
-}
-
-.resultTitle {
-  margin: 0 0 10px;
-  font-size: 26px;
-}
-
-.placeholder {
-  margin: 0;
-  color: rgba(58, 42, 32, 0.7);
-  line-height: 1.6;
-}
-
-.resultBox {
-  border: 1px solid rgba(229, 204, 181, 0.96);
-  border-radius: 12px;
-  background: #fff;
-  padding: 12px;
-}
-
-.resultLabel {
-  margin: 12px 0 4px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: rgba(58, 42, 32, 0.55);
-}
-
-.resultLabel:first-child {
-  margin-top: 0;
-}
-
-.resultLink {
-  display: block;
-  font-size: 13px;
-  color: #8e4116;
-  word-break: break-all;
-}
-
-.copyButton {
-  margin-top: 8px;
-  width: 100%;
-  min-height: 38px;
-  border-radius: 10px;
-  border: 1px solid rgba(240, 147, 0, 0.44);
-  background: rgba(240, 147, 0, 0.1);
-  font-size: 14px;
-  font-weight: 600;
-  color: #8b3f13;
-  cursor: pointer;
-}
-
-.copyState,
-.copyError {
-  margin: 8px 0 0;
-  font-size: 12px;
-}
-
-.copyState {
-  color: #216f36;
-}
-
-.copyError {
-  color: #bd3f26;
-}
-
-@media (min-width: 980px) {
-  .lookupCard {
-    grid-template-columns: 1.05fr 0.95fr;
-  }
-
-  .form {
-    border-bottom: 0;
-    border-right: 1px solid rgba(241, 217, 196, 0.8);
-  }
-}
-
 @media (max-width: 640px) {
   .timePicker {
+    grid-template-columns: 1fr;
+  }
+
+  .phoneRow,
+  .phoneRowCustom {
     grid-template-columns: 1fr;
   }
 }

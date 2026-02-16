@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useMemo, useState } from 'react'
 import styles from './page.module.css'
 
@@ -13,10 +14,15 @@ type BookingForm = {
     instructorName: string
     location: string
     leaderName: string
-    leaderPhone: string
-    cashReceiptNumber: string
+    leaderPhonePrefix: string
+    leaderPhoneCustomPrefix: string
+    leaderPhoneSuffix: string
+    cashReceiptPrefix: string
+    cashReceiptCustomPrefix: string
+    cashReceiptSuffix: string
     headcountDeclared: number
     childName: string
+    childGrade: string
     priorStudentAttended: YesNo
     siblingsPriorAttended: YesNo
     parentPriorAttended: YesNo
@@ -26,14 +32,7 @@ type BookingForm = {
 }
 
 type BookingSuccess = {
-    success: boolean
-    groupId: string
-    slotId: string
     manageToken: string
-    manageUrl: string
-    initialMemberCreated: boolean
-    leaderEditToken: string | null
-    leaderEditUrl: string | null
 }
 
 type BookingErrorPayload = {
@@ -50,10 +49,15 @@ const INITIAL_FORM: BookingForm = {
     instructorName: '',
     location: '',
     leaderName: '',
-    leaderPhone: '',
-    cashReceiptNumber: '',
+    leaderPhonePrefix: '010',
+    leaderPhoneCustomPrefix: '',
+    leaderPhoneSuffix: '',
+    cashReceiptPrefix: '010',
+    cashReceiptCustomPrefix: '',
+    cashReceiptSuffix: '',
     headcountDeclared: 2,
     childName: '',
+    childGrade: '',
     priorStudentAttended: '',
     siblingsPriorAttended: '',
     parentPriorAttended: '',
@@ -64,6 +68,19 @@ const INITIAL_FORM: BookingForm = {
 
 const HOURS = Array.from({ length: 24 }, (_, hour) => String(hour).padStart(2, '0'))
 const MINUTES = ['00', '30']
+const INSTRUCTOR_OPTIONS = ['이시훈 대표강사']
+const GRADE_OPTIONS = [
+    '초3',
+    '초4',
+    '초5',
+    '초6',
+    '중1',
+    '중2',
+    '중3',
+    '고1',
+    '고2',
+    '고3',
+]
 const LOCATION_OPTIONS = ['와이미 교육센터', '광주', '대전/세종', '부산', '제주']
 const CHANNEL_OPTIONS = [
     '유튜브 채널',
@@ -74,16 +91,30 @@ const CHANNEL_OPTIONS = [
     '도서/방송',
     '기타',
 ]
+const DIRECT_PHONE_PREFIX = 'direct'
+const PHONE_PREFIX_OPTIONS = ['010', '011', '016', '017', '018', '019']
 
 function digitsOnly(value: string): string {
     return value.replace(/\D/g, '')
 }
 
-function formatPhone(value: string): string {
-    const digits = digitsOnly(value).slice(0, 11)
-    if (digits.length <= 3) return digits
-    if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`
-    return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`
+function normalizePhonePrefix(value: string): string {
+    return digitsOnly(value).slice(0, 3)
+}
+
+function normalizePhoneSuffix(value: string): string {
+    return digitsOnly(value).slice(0, 8)
+}
+
+function resolvePhonePrefix(selected: string, custom: string): string {
+    if (selected === DIRECT_PHONE_PREFIX) {
+        return normalizePhonePrefix(custom)
+    }
+    return normalizePhonePrefix(selected)
+}
+
+function composePhoneNumber(prefix: string, suffix: string): string {
+    return `${normalizePhonePrefix(prefix)}${normalizePhoneSuffix(suffix)}`
 }
 
 function answerToBoolean(value: YesNo): boolean | undefined {
@@ -145,14 +176,24 @@ function YesNoField({ legend, name, value, onChange }: YesNoFieldProps) {
 }
 
 export default function BookingPage() {
+    const router = useRouter()
     const [form, setForm] = useState<BookingForm>(INITIAL_FORM)
     const [submitting, setSubmitting] = useState(false)
     const [error, setError] = useState<string | null>(null)
-    const [result, setResult] = useState<BookingSuccess | null>(null)
-    const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle')
 
     const resolvedLocation = form.location
     const resolvedChannel = form.acquisitionChannel === '기타' ? form.acquisitionEtc.trim() : form.acquisitionChannel
+    const leaderPhonePrefix = resolvePhonePrefix(form.leaderPhonePrefix, form.leaderPhoneCustomPrefix)
+    const leaderPhoneSuffix = normalizePhoneSuffix(form.leaderPhoneSuffix)
+    const leaderPhone = composePhoneNumber(leaderPhonePrefix, leaderPhoneSuffix)
+    const hasValidLeaderPhone = leaderPhonePrefix.length === 3 && leaderPhoneSuffix.length === 8
+
+    const cashReceiptPrefix = resolvePhonePrefix(form.cashReceiptPrefix, form.cashReceiptCustomPrefix)
+    const cashReceiptSuffix = normalizePhoneSuffix(form.cashReceiptSuffix)
+    const hasCashReceiptNumber = cashReceiptSuffix.length > 0
+    const hasValidCashReceiptNumber =
+        !hasCashReceiptNumber || (cashReceiptPrefix.length === 3 && cashReceiptSuffix.length === 8)
+    const cashReceiptNumber = hasCashReceiptNumber ? composePhoneNumber(cashReceiptPrefix, cashReceiptSuffix) : undefined
 
     const canSubmit = useMemo(() => {
         return Boolean(
@@ -162,8 +203,10 @@ export default function BookingPage() {
                 form.instructorName.trim() &&
                 resolvedLocation &&
                 form.leaderName.trim() &&
-                digitsOnly(form.leaderPhone).length >= 10 &&
+                hasValidLeaderPhone &&
+                hasValidCashReceiptNumber &&
                 form.childName.trim() &&
+                form.childGrade &&
                 form.priorStudentAttended &&
                 form.siblingsPriorAttended &&
                 form.parentPriorAttended &&
@@ -176,8 +219,10 @@ export default function BookingPage() {
         form.instructorName,
         resolvedLocation,
         form.leaderName,
-        form.leaderPhone,
+        hasValidLeaderPhone,
+        hasValidCashReceiptNumber,
         form.childName,
+        form.childGrade,
         form.priorStudentAttended,
         form.siblingsPriorAttended,
         form.parentPriorAttended,
@@ -190,8 +235,6 @@ export default function BookingPage() {
 
         setSubmitting(true)
         setError(null)
-        setResult(null)
-        setCopyState('idle')
 
         const payload = {
             classDate: form.classDate,
@@ -199,10 +242,11 @@ export default function BookingPage() {
             instructorName: form.instructorName.trim(),
             location: resolvedLocation,
             leaderName: form.leaderName.trim(),
-            leaderPhone: form.leaderPhone,
-            cashReceiptNumber: form.cashReceiptNumber.trim() || undefined,
+            leaderPhone,
+            cashReceiptNumber,
             headcountDeclared: form.headcountDeclared,
             childName: form.childName.trim(),
+            childGrade: form.childGrade,
             priorStudentAttended: answerToBoolean(form.priorStudentAttended),
             siblingsPriorAttended: answerToBoolean(form.siblingsPriorAttended),
             parentPriorAttended: answerToBoolean(form.parentPriorAttended),
@@ -225,22 +269,12 @@ export default function BookingPage() {
                 return
             }
 
-            setResult(data as BookingSuccess)
+            const bookingResult = data as BookingSuccess
+            router.replace(`/manage/${bookingResult.manageToken}`)
         } catch (_err) {
             setError('서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.')
         } finally {
             setSubmitting(false)
-        }
-    }
-
-    const onCopyManageUrl = async () => {
-        if (!result) return
-
-        try {
-            await navigator.clipboard.writeText(result.manageUrl)
-            setCopyState('copied')
-        } catch (_err) {
-            setCopyState('failed')
         }
     }
 
@@ -249,8 +283,8 @@ export default function BookingPage() {
             <section className={styles.hero}>
                 <div className={styles.heroGlowA} />
                 <div className={styles.heroGlowB} />
-                <p className={styles.heroBadge}>WhyMe Booking</p>
-                <h1 className={`font-display ${styles.heroTitle}`}>대표 학부모 신청 정보 입력</h1>
+                <p className={styles.heroBadge}>group information</p>
+                <h1 className={`font-display ${styles.heroTitle}`}>그룹 정보 입력 (대표 학부모)</h1>
                 <p className={styles.heroDescription}>
                     신청 정보를 입력하면 바로 관리 링크가 발급됩니다. 이후 팀원 초대와 명단 확인을 이어서 진행할 수 있습니다.
                 </p>
@@ -310,12 +344,18 @@ export default function BookingPage() {
 
                         <label className={styles.field}>
                             <span>강사명</span>
-                            <input
+                            <select
                                 required
                                 value={form.instructorName}
                                 onChange={(event) => setForm((prev) => ({ ...prev, instructorName: event.target.value }))}
-                                placeholder="예: 김와이미 강사"
-                            />
+                            >
+                                <option value="">선택해 주세요</option>
+                                {INSTRUCTOR_OPTIONS.map((option) => (
+                                    <option key={option} value={option}>
+                                        {option}
+                                    </option>
+                                ))}
+                            </select>
                         </label>
 
                         <label className={styles.field}>
@@ -350,35 +390,114 @@ export default function BookingPage() {
                             </label>
                             <label className={styles.field}>
                                 <span>대표 연락처</span>
-                                <input
-                                    required
-                                    inputMode="numeric"
-                                    value={form.leaderPhone}
-                                    onChange={(event) =>
-                                        setForm((prev) => ({
-                                            ...prev,
-                                            leaderPhone: formatPhone(event.target.value),
-                                        }))
+                                <div
+                                    className={
+                                        form.leaderPhonePrefix === DIRECT_PHONE_PREFIX
+                                            ? `${styles.phoneRow} ${styles.phoneRowCustom}`
+                                            : styles.phoneRow
                                     }
-                                    placeholder="010-1234-5678"
-                                />
+                                >
+                                    <select
+                                        value={form.leaderPhonePrefix}
+                                        onChange={(event) =>
+                                            setForm((prev) => ({
+                                                ...prev,
+                                                leaderPhonePrefix: event.target.value,
+                                            }))
+                                        }
+                                    >
+                                        {PHONE_PREFIX_OPTIONS.map((option) => (
+                                            <option key={option} value={option}>
+                                                {option}
+                                            </option>
+                                        ))}
+                                        <option value={DIRECT_PHONE_PREFIX}>직접입력</option>
+                                    </select>
+                                    {form.leaderPhonePrefix === DIRECT_PHONE_PREFIX ? (
+                                        <input
+                                            required
+                                            inputMode="numeric"
+                                            maxLength={3}
+                                            value={form.leaderPhoneCustomPrefix}
+                                            onChange={(event) =>
+                                                setForm((prev) => ({
+                                                    ...prev,
+                                                    leaderPhoneCustomPrefix: normalizePhonePrefix(event.target.value),
+                                                }))
+                                            }
+                                            placeholder="앞 3자리"
+                                        />
+                                    ) : null}
+                                    <input
+                                        required
+                                        inputMode="numeric"
+                                        maxLength={8}
+                                        value={form.leaderPhoneSuffix}
+                                        onChange={(event) =>
+                                            setForm((prev) => ({
+                                                ...prev,
+                                                leaderPhoneSuffix: normalizePhoneSuffix(event.target.value),
+                                            }))
+                                        }
+                                        placeholder="뒤 8자리"
+                                    />
+                                </div>
                             </label>
                         </div>
 
                         <div className={styles.gridTwo}>
                             <label className={styles.field}>
                                 <span>현금영수증 번호 (선택)</span>
-                                <input
-                                    inputMode="numeric"
-                                    value={form.cashReceiptNumber}
-                                    onChange={(event) =>
-                                        setForm((prev) => ({
-                                            ...prev,
-                                            cashReceiptNumber: formatPhone(event.target.value),
-                                        }))
+                                <div
+                                    className={
+                                        form.cashReceiptPrefix === DIRECT_PHONE_PREFIX
+                                            ? `${styles.phoneRow} ${styles.phoneRowCustom}`
+                                            : styles.phoneRow
                                     }
-                                    placeholder="010-0000-0000"
-                                />
+                                >
+                                    <select
+                                        value={form.cashReceiptPrefix}
+                                        onChange={(event) =>
+                                            setForm((prev) => ({
+                                                ...prev,
+                                                cashReceiptPrefix: event.target.value,
+                                            }))
+                                        }
+                                    >
+                                        {PHONE_PREFIX_OPTIONS.map((option) => (
+                                            <option key={option} value={option}>
+                                                {option}
+                                            </option>
+                                        ))}
+                                        <option value={DIRECT_PHONE_PREFIX}>직접입력</option>
+                                    </select>
+                                    {form.cashReceiptPrefix === DIRECT_PHONE_PREFIX ? (
+                                        <input
+                                            inputMode="numeric"
+                                            maxLength={3}
+                                            value={form.cashReceiptCustomPrefix}
+                                            onChange={(event) =>
+                                                setForm((prev) => ({
+                                                    ...prev,
+                                                    cashReceiptCustomPrefix: normalizePhonePrefix(event.target.value),
+                                                }))
+                                            }
+                                            placeholder="앞 3자리"
+                                        />
+                                    ) : null}
+                                    <input
+                                        inputMode="numeric"
+                                        maxLength={8}
+                                        value={form.cashReceiptSuffix}
+                                        onChange={(event) =>
+                                            setForm((prev) => ({
+                                                ...prev,
+                                                cashReceiptSuffix: normalizePhoneSuffix(event.target.value),
+                                            }))
+                                        }
+                                        placeholder="뒤 8자리"
+                                    />
+                                </div>
                             </label>
                             <label className={styles.field}>
                                 <span>예상 참여 인원</span>
@@ -413,6 +532,22 @@ export default function BookingPage() {
                             />
                         </label>
 
+                        <label className={styles.field}>
+                            <span>학년</span>
+                            <select
+                                required
+                                value={form.childGrade}
+                                onChange={(event) => setForm((prev) => ({ ...prev, childGrade: event.target.value }))}
+                            >
+                                <option value="">선택해 주세요</option>
+                                {GRADE_OPTIONS.map((option) => (
+                                    <option key={option} value={option}>
+                                        {option}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+
                         <YesNoField
                             legend="교육에 참여하는 학생이 학교 성교육 외 별도의 성교육 경험(와이미 포함)이 있나요?"
                             name="priorStudentAttended"
@@ -440,7 +575,11 @@ export default function BookingPage() {
                         <label className={styles.field}>
                             <span>강사님에게 전달할 사항</span>
                             <div className={styles.noteGuide}>
-                                <p className={styles.noteGuideTitle}>교육 시 강사가 알아두어야 할 학생의 특이사항</p>
+                                <p className={styles.noteGuideTitle}>
+                                    교육 시 강사가 알아두어야 할 학생의 특이사항
+                                    <br />
+                                    ex)
+                                </p>
                                 <ul>
                                     <li>ADHD 약을 복용하고 있어요. 다소 산만한 모습을 보일 수도 있으니 양해 부탁드려요.</li>
                                     <li>이전 다른 교육에서 들었던 내용으로 인해, 성교육에 대한 거부감이 매우 커요.</li>
@@ -448,7 +587,11 @@ export default function BookingPage() {
                                     <li>학교에서 심한 장난과 성적인 욕설로 몇 번 문제를 겪었어요.</li>
                                     <li>참석 아이들 모두 포경수술을 했어요.</li>
                                 </ul>
-                                <p className={styles.noteGuideTitle}>교육 시 집중 전달 또는 언급 자제 요청사항</p>
+                                <p className={`${styles.noteGuideTitle} ${styles.noteGuideTitleSpaced}`}>
+                                    교육 시 집중 전달 또는 언급 자제 요청사항
+                                    <br />
+                                    ex)
+                                </p>
                                 <ul>
                                     <li>세 명 모두 미디어 노출이 없어서 또래보다 어려요. 잘 맞춰서 교육 부탁드려요.</li>
                                     <li>아이가 이성에 관심이 많습니다. SNS나 유튜브 등 미디어 이용 시 주의점 잘 알려주시면 좋겠어요.</li>
@@ -501,44 +644,6 @@ export default function BookingPage() {
                         {submitting ? '등록 중...' : '신청 정보 등록하기'}
                     </button>
                 </form>
-
-                <aside className={styles.summaryPanel}>
-                    <h2 className={`font-display ${styles.summaryTitle}`}>등록 결과</h2>
-                    {result ? (
-                        <div className={styles.resultBox}>
-                            <p className={styles.resultMessage}>입력이 완료되었습니다. 아래 관리 링크를 저장해 주세요.</p>
-
-                            <p className={styles.resultLabel}>그룹 ID</p>
-                            <p className={styles.resultValue}>{result.groupId}</p>
-
-                            <p className={styles.resultLabel}>관리 링크</p>
-                            <a className={styles.resultLink} href={result.manageUrl}>
-                                {result.manageUrl}
-                            </a>
-
-                            <button type="button" className={styles.copyButton} onClick={onCopyManageUrl}>
-                                관리 링크 복사
-                            </button>
-
-                            {copyState === 'copied' ? <p className={styles.copyState}>클립보드에 복사했습니다.</p> : null}
-                            {copyState === 'failed' ? <p className={styles.copyError}>복사에 실패했습니다. 직접 복사해 주세요.</p> : null}
-
-                            {result.leaderEditUrl ? (
-                                <>
-                                    <p className={styles.resultLabel}>대표 수정 링크</p>
-                                    <a className={styles.resultLink} href={result.leaderEditUrl}>
-                                        {result.leaderEditUrl}
-                                    </a>
-                                </>
-                            ) : null}
-                        </div>
-                    ) : (
-                        <div className={styles.placeholderCard}>
-                            <p>신청을 완료하면 관리 링크가 여기에 표시됩니다.</p>
-                            <p>관리 링크에서 팀원 초대 링크를 만들 수 있습니다.</p>
-                        </div>
-                    )}
-                </aside>
             </section>
         </main>
     )

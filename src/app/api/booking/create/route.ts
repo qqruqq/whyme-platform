@@ -24,6 +24,7 @@ const bookingSchema = z.object({
     cashReceiptNumber: z.string().optional(),
     headcountDeclared: z.number().int().min(2).max(6).default(2),
     childName: z.string().min(1, "자녀 이름을 입력해주세요").optional(),
+    childGrade: z.string().optional(),
     priorStudentAttended: z.boolean().optional(),
     siblingsPriorAttended: z.boolean().optional(),
     parentPriorAttended: z.boolean().optional(),
@@ -68,6 +69,7 @@ export async function POST(request: Request) {
             cashReceiptNumber,
             headcountDeclared,
             childName,
+            childGrade,
             priorStudentAttended,
             siblingsPriorAttended,
             parentPriorAttended,
@@ -182,6 +184,7 @@ export async function POST(request: Request) {
                 const child = await tx.child.create({
                     data: {
                         name: childName,
+                        grade: childGrade,
                         priorStudentAttended,
                         siblingsPriorAttended,
                         parentPriorAttended,
