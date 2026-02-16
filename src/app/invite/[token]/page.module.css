@@ -117,6 +117,20 @@
   box-shadow: 0 0 0 3px rgba(240, 147, 0, 0.18);
 }
 
+.toggleRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(58, 42, 32, 0.84);
+}
+
+.toggleRow input {
+  width: 18px;
+  height: 18px;
+}
+
 .questionCard {
   border-radius: 13px;
   border: 1px solid rgba(233, 206, 184, 0.95);
@@ -250,6 +264,18 @@
   font-size: 13px;
   color: #8e4116;
   word-break: break-all;
+}
+
+.resultList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+}
+
+.resultListItem {
+  margin: 0;
 }
 
 .copyButton {

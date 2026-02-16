@@ -14,12 +14,17 @@ export async function GET(_request: Request, { params }: RouteContext) {
     const leaderLink = await prisma.inviteLink.findUnique({
       where: { token: leaderToken },
       include: {
-        group: {
-          include: {
-            groupMembers: {
+            group: {
               include: {
-                child: true,
-              },
+                groupMembers: {
+                  where: {
+                    status: {
+                      not: 'removed',
+                    },
+                  },
+                  include: {
+                    child: true,
+                  },
               orderBy: {
                 createdAt: 'asc',
               },

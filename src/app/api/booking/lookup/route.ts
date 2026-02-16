@@ -82,6 +82,9 @@ export async function POST(request: Request) {
                     groupMembers: {
                         where: {
                             parentPhone: normalizedLeaderPhone,
+                            status: {
+                                not: 'removed',
+                            },
                             editToken: {
                                 not: null,
                             },

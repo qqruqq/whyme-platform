@@ -26,12 +26,12 @@ Key concept: **no login for customers**. Access is link/token based.
 - Used to access leader manage page and to create new roster-entry invites.
 
 ### Invite token (InviteLink.purpose = roster_entry)
-- Default: one-time submit (maxUses = 1).
+- Team-shared link (reuse allowed within team).
 - Submit creates:
-  - Child record
-  - GroupMember record
-  - editToken on GroupMember
-- After successful submit, invite token becomes used.
+  - 1~2 Child records
+  - GroupMember records
+  - editToken on each GroupMember
+- Re-submit with same `parentPhone` overwrites that parent's existing records.
 
 ### Edit token (GroupMember.editToken)
 - Used to edit a single member submission via `/member/edit/[editToken]`.
@@ -51,7 +51,7 @@ Operational requirement:
 ### Phone numbers
 - UI: allow digits-only input, display with hyphens.
 - Server: normalize and store digits-only (e.g. `01012345678`).
-- Optional phone values must be 10~11 digits when provided.
+- `invite/submit` requires `parentPhone` (10~11 digits).
 - Blank phone should be stored as `NULL` (not empty string).
 
 ### Grade

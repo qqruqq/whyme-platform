@@ -7,7 +7,7 @@ Base URL:
 ## Data normalization
 - Phone inputs may include `-`, spaces, and parentheses, but the server stores digits only (e.g. `010-1234-5678` -> `01012345678`).
 - Optional phone inputs must resolve to 10~11 digits when provided.
-- `parentPhone` sent as empty string (`""`) is stored as `null`.
+- In `invite/submit`, `parentPhone` is required.
 
 ## 1) POST `/api/booking/create`
 Creates:
@@ -60,13 +60,12 @@ Notes:
 - `404` invalid `slotId`
 
 ## 2) POST `/api/invite/create`
-Leader creates member invite links.
+Leader creates or reuses one team-shared invite link.
 
 ### Request
 ```json
 {
   "leaderToken": "leader-only-token",
-  "count": 3,
   "expiresInDays": 14
 }
 ```
@@ -76,14 +75,15 @@ Leader creates member invite links.
 {
   "success": true,
   "groupId": "UUID",
-  "createdCount": 3,
-  "inviteUrls": [
-    "http://localhost:3000/invite/<token1>",
-    "http://localhost:3000/invite/<token2>",
-    "http://localhost:3000/invite/<token3>"
-  ]
+  "createdCount": 1,
+  "inviteUrl": "http://localhost:3000/invite/<token>",
+  "inviteUrls": ["http://localhost:3000/invite/<token>"],
+  "reusedExisting": false
 }
 ```
+
+Notes:
+- If an active shared link already exists, it is reused (`createdCount=0`, `reusedExisting=true`).
 
 ### Errors
 - `404` invalid token
@@ -93,22 +93,36 @@ Leader creates member invite links.
 - `503` temporary concurrency issue (retryable)
 
 ## 3) POST `/api/invite/submit`
-Member submits roster entry.
+Team member submits roster entry via shared link.
 
 Behavior:
-- Invite token claim is atomic (race-safe).
-- Creates `Child`, `GroupMember` (`editToken` included).
+- Shared invite token can be reused by team members.
+- A single submit can include 1~2 students (for siblings/twins).
+- `parentPhone` is required.
+- If the same `parentPhone` submits again, existing records for that parent are overwritten.
 - If `GroupPass.rosterStatus=draft`, it auto-transitions to `collecting` on first successful submit.
+- Headcount is enforced against `headcountDeclared` (leader child included).
 
 ### Request
 ```json
 {
   "token": "roster-entry-token",
-  "childName": "최띠옹",
-  "childGrade": "초6",
-  "priorStudentAttended": false,
-  "siblingsPriorAttended": false,
-  "parentPriorAttended": false,
+  "students": [
+    {
+      "childName": "첫째",
+      "childGrade": "초6",
+      "priorStudentAttended": false,
+      "siblingsPriorAttended": false,
+      "parentPriorAttended": false
+    },
+    {
+      "childName": "둘째",
+      "childGrade": "초4",
+      "priorStudentAttended": false,
+      "siblingsPriorAttended": false,
+      "parentPriorAttended": false
+    }
+  ],
   "parentName": "김학부모",
   "parentPhone": "010-0000-0000",
   "noteToInstructor": "처음 참여합니다."
@@ -120,10 +134,17 @@ Behavior:
 {
   "success": true,
   "groupId": "UUID",
+  "submittedStudentCount": 2,
+  "groupMemberIds": ["UUID", "UUID"],
+  "currentMemberCount": 4,
+  "editTokens": ["UUID", "UUID"],
+  "editUrls": [
+    "http://localhost:3000/member/edit/<editToken1>",
+    "http://localhost:3000/member/edit/<editToken2>"
+  ],
   "groupMemberId": "UUID",
-  "currentMemberCount": 2,
   "editToken": "UUID",
-  "editUrl": "http://localhost:3000/member/edit/<editToken>"
+  "editUrl": "http://localhost:3000/member/edit/<editToken1>"
 }
 ```
 
@@ -131,8 +152,8 @@ Behavior:
 - `404` invalid token
 - `403` invalid token purpose
 - `410` token expired
-- `409` token already used
 - `409` group roster locked
+- `409` group headcount exceeded
 - `503` temporary concurrency issue (retryable)
 
 ## 4) GET `/api/member/[editToken]`

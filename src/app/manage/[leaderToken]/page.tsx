@@ -37,7 +37,9 @@ type InviteCreateResult = {
     success: boolean;
     groupId: string;
     createdCount: number;
+    inviteUrl: string;
     inviteUrls: string[];
+    reusedExisting: boolean;
 };
 
 type ApiErrorPayload = {
@@ -70,10 +72,10 @@ export default function ManagePage() {
     const [loadingError, setLoadingError] = useState<string | null>(null);
     const [data, setData] = useState<ManageData | null>(null);
 
-    const [count, setCount] = useState(1);
     const [expiresInDays, setExpiresInDays] = useState(14);
     const [creating, setCreating] = useState(false);
     const [createError, setCreateError] = useState<string | null>(null);
+    const [createMessage, setCreateMessage] = useState<string | null>(null);
     const [createdInviteUrls, setCreatedInviteUrls] = useState<string[]>([]);
     const [copyState, setCopyState] = useState<'idle' | 'copiedAll' | 'failed'>('idle');
 
@@ -112,6 +114,7 @@ export default function ManagePage() {
 
         setCreating(true);
         setCreateError(null);
+        setCreateMessage(null);
         setCreatedInviteUrls([]);
         setCopyState('idle');
 
@@ -123,7 +126,6 @@ export default function ManagePage() {
                 },
                 body: JSON.stringify({
                     leaderToken,
-                    count,
                     expiresInDays,
                 }),
             });
@@ -136,6 +138,11 @@ export default function ManagePage() {
 
             const result = payload as InviteCreateResult;
             setCreatedInviteUrls(result.inviteUrls);
+            setCreateMessage(
+                result.reusedExisting
+                    ? '기존 팀 공용 링크를 불러왔습니다.'
+                    : '새 팀 공용 링크를 생성했습니다.'
+            );
             await fetchManageData();
         } catch (_err) {
             setCreateError('서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.');
@@ -194,19 +201,8 @@ export default function ManagePage() {
 
                     <section className={styles.gridLayout}>
                         <article className={styles.panel}>
-                            <h2 className={`font-display ${styles.panelTitle}`}>팀원 초대 링크 생성</h2>
+                            <h2 className={`font-display ${styles.panelTitle}`}>팀 공용 초대 링크</h2>
                             <form onSubmit={onCreateInvites} className={styles.form}>
-                                <label className={styles.field}>
-                                    <span>생성 개수</span>
-                                    <select value={count} onChange={(event) => setCount(Number(event.target.value))}>
-                                        {[1, 2, 3, 4, 5, 6].map((value) => (
-                                            <option key={value} value={value}>
-                                                {value}개
-                                            </option>
-                                        ))}
-                                    </select>
-                                </label>
-
                                 <label className={styles.field}>
                                     <span>유효기간 (일)</span>
                                     <select
@@ -222,9 +218,10 @@ export default function ManagePage() {
                                 </label>
 
                                 {createError ? <p className={styles.errorText}>{createError}</p> : null}
+                                {createMessage ? <p className={styles.infoText}>{createMessage}</p> : null}
 
                                 <button type="submit" disabled={creating || isLocked} className={styles.submitButton}>
-                                    {creating ? '생성 중...' : isLocked ? '잠금 상태로 생성 불가' : '초대 링크 만들기'}
+                                    {creating ? '처리 중...' : isLocked ? '잠금 상태로 생성 불가' : '공용 링크 확인/생성'}
                                 </button>
                             </form>
 
