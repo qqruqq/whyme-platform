@@ -17,25 +17,13 @@ type StudentForm = {
 
 type InviteForm = {
   parentName: string;
-  parentPhone: string;
+  parentPhonePrefix: string;
+  parentPhoneCustomPrefix: string;
+  parentPhoneSuffix: string;
   noteToInstructor: string;
   includeSecondStudent: boolean;
   firstStudent: StudentForm;
   secondStudent: StudentForm;
-};
-
-type SubmitSuccess = {
-  success: boolean;
-  groupId: string;
-  currentMemberCount: number;
-  submittedStudentCount: number;
-  groupMemberIds: string[];
-  editTokens: string[];
-  editUrls: string[];
-  // backward compatibility
-  groupMemberId?: string;
-  editToken?: string;
-  editUrl?: string;
 };
 
 type ApiErrorPayload = {
@@ -45,22 +33,7 @@ type ApiErrorPayload = {
   };
 };
 
-const GRADE_OPTIONS = [
-  '유아',
-  '초1',
-  '초2',
-  '초3',
-  '초4',
-  '초5',
-  '초6',
-  '중1',
-  '중2',
-  '중3',
-  '고1',
-  '고2',
-  '고3',
-  '기타',
-];
+const GRADE_OPTIONS = ['초3', '초4', '초5', '초6', '중1', '중2', '중3', '고1', '고2', '고3'];
 
 const EMPTY_STUDENT: StudentForm = {
   childName: '',
@@ -72,22 +45,39 @@ const EMPTY_STUDENT: StudentForm = {
 
 const INITIAL_FORM: InviteForm = {
   parentName: '',
-  parentPhone: '',
+  parentPhonePrefix: '010',
+  parentPhoneCustomPrefix: '',
+  parentPhoneSuffix: '',
   noteToInstructor: '',
   includeSecondStudent: false,
   firstStudent: { ...EMPTY_STUDENT },
   secondStudent: { ...EMPTY_STUDENT },
 };
 
+const DIRECT_PHONE_PREFIX = 'direct';
+const PHONE_PREFIX_OPTIONS = ['010', '011', '016', '017', '018', '019'];
+
 function digitsOnly(value: string): string {
   return value.replace(/\D/g, '');
 }
 
-function formatPhone(value: string): string {
-  const digits = digitsOnly(value).slice(0, 11);
-  if (digits.length <= 3) return digits;
-  if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
-  return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+function normalizePhonePrefix(value: string): string {
+  return digitsOnly(value).slice(0, 3);
+}
+
+function normalizePhoneSuffix(value: string): string {
+  return digitsOnly(value).slice(0, 8);
+}
+
+function resolvePhonePrefix(selected: string, custom: string): string {
+  if (selected === DIRECT_PHONE_PREFIX) {
+    return normalizePhonePrefix(custom);
+  }
+  return normalizePhonePrefix(selected);
+}
+
+function composePhoneNumber(prefix: string, suffix: string): string {
+  return `${normalizePhonePrefix(prefix)}${normalizePhoneSuffix(suffix)}`;
 }
 
 function answerToBoolean(value: YesNo): boolean | undefined {
@@ -99,6 +89,7 @@ function answerToBoolean(value: YesNo): boolean | undefined {
 function studentComplete(student: StudentForm): boolean {
   return Boolean(
     student.childName.trim() &&
+      student.childGrade &&
       student.priorStudentAttended &&
       student.siblingsPriorAttended &&
       student.parentPriorAttended
@@ -122,7 +113,7 @@ function mapApiError(status: number, payload: unknown): string {
       return '이 링크는 유효기간이 지나 사용할 수 없습니다.';
     }
     if (error === 'Token already used' && status === 409) {
-      return '이미 입력이 완료된 링크입니다. 수정이 필요하면 수정 링크를 이용해 주세요.';
+      return '이미 입력이 완료된 링크입니다. 조회/수정은 예약 내역 조회/수정에서 진행해 주세요.';
     }
     if (error === 'Group roster is locked' && status === 409) {
       return '교육 준비가 완료되어 더 이상 입력/수정이 어렵습니다.';
@@ -198,11 +189,8 @@ function StudentSection({ title, namePrefix, student, onChange }: StudentSection
 
       <label className={styles.field}>
         <span>학년</span>
-        <select
-          value={student.childGrade}
-          onChange={(event) => onChange({ ...student, childGrade: event.target.value })}
-        >
-          <option value="">선택해 주세요 (선택)</option>
+        <select value={student.childGrade} onChange={(event) => onChange({ ...student, childGrade: event.target.value })}>
+          <option value="">선택해 주세요</option>
           {GRADE_OPTIONS.map((grade) => (
             <option key={grade} value={grade}>
               {grade}
@@ -242,24 +230,27 @@ export default function InviteEntryPage() {
   const [form, setForm] = useState<InviteForm>(INITIAL_FORM);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<SubmitSuccess | null>(null);
-  const [copyState, setCopyState] = useState<'idle' | 'copiedAll' | 'failed'>('idle');
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  const parentPhonePrefix = resolvePhonePrefix(form.parentPhonePrefix, form.parentPhoneCustomPrefix);
+  const parentPhoneSuffix = normalizePhoneSuffix(form.parentPhoneSuffix);
+  const parentPhone = composePhoneNumber(parentPhonePrefix, parentPhoneSuffix);
+  const hasValidParentPhone = parentPhonePrefix.length === 3 && parentPhoneSuffix.length === 8;
 
   const canSubmit = useMemo(() => {
     if (!token) return false;
 
-    const phoneDigits = digitsOnly(form.parentPhone);
     const firstReady = studentComplete(form.firstStudent);
     const secondReady = !form.includeSecondStudent || studentComplete(form.secondStudent);
 
     return Boolean(
       form.parentName.trim() &&
-        phoneDigits.length >= 10 &&
-        phoneDigits.length <= 11 &&
+        hasValidParentPhone &&
+        form.noteToInstructor.trim() &&
         firstReady &&
         secondReady
     );
-  }, [token, form]);
+  }, [token, form, hasValidParentPhone]);
 
   const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -267,13 +258,12 @@ export default function InviteEntryPage() {
 
     setSubmitting(true);
     setError(null);
-    setSuccess(null);
-    setCopyState('idle');
+    setSuccessMessage(null);
 
     const students = [
       {
         childName: form.firstStudent.childName.trim(),
-        childGrade: form.firstStudent.childGrade || undefined,
+        childGrade: form.firstStudent.childGrade,
         priorStudentAttended: answerToBoolean(form.firstStudent.priorStudentAttended),
         siblingsPriorAttended: answerToBoolean(form.firstStudent.siblingsPriorAttended),
         parentPriorAttended: answerToBoolean(form.firstStudent.parentPriorAttended),
@@ -283,7 +273,7 @@ export default function InviteEntryPage() {
     if (form.includeSecondStudent) {
       students.push({
         childName: form.secondStudent.childName.trim(),
-        childGrade: form.secondStudent.childGrade || undefined,
+        childGrade: form.secondStudent.childGrade,
         priorStudentAttended: answerToBoolean(form.secondStudent.priorStudentAttended),
         siblingsPriorAttended: answerToBoolean(form.secondStudent.siblingsPriorAttended),
         parentPriorAttended: answerToBoolean(form.secondStudent.parentPriorAttended),
@@ -300,8 +290,8 @@ export default function InviteEntryPage() {
           token,
           students,
           parentName: form.parentName.trim(),
-          parentPhone: form.parentPhone.trim(),
-          noteToInstructor: form.noteToInstructor.trim() || undefined,
+          parentPhone,
+          noteToInstructor: form.noteToInstructor.trim(),
         }),
       });
 
@@ -312,22 +302,11 @@ export default function InviteEntryPage() {
         return;
       }
 
-      setSuccess(data as SubmitSuccess);
+      setSuccessMessage('입력이 완료되었습니다. 수정이 필요하면 홈의 예약 내역 조회/수정을 이용해 주세요.');
     } catch (_err) {
       setError('서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.');
     } finally {
       setSubmitting(false);
-    }
-  };
-
-  const onCopyEditUrls = async () => {
-    if (!success || success.editUrls.length === 0) return;
-
-    try {
-      await navigator.clipboard.writeText(success.editUrls.join('\n'));
-      setCopyState('copiedAll');
-    } catch (_err) {
-      setCopyState('failed');
     }
   };
 
@@ -336,9 +315,7 @@ export default function InviteEntryPage() {
       <section className={styles.hero}>
         <p className={styles.badge}>Invite Entry</p>
         <h1 className={`font-display ${styles.title}`}>팀원 정보 입력</h1>
-        <p className={styles.description}>
-          한 번에 최대 2명의 학생 정보를 입력할 수 있습니다. 입력 완료 후 수정 링크를 꼭 저장해 주세요.
-        </p>
+        <p className={styles.description}>한 번에 최대 2명의 학생 정보를 입력할 수 있습니다.</p>
         <Link href="/" className={styles.backLink}>
           홈으로 이동
         </Link>
@@ -366,7 +343,7 @@ export default function InviteEntryPage() {
                   }))
                 }
               />
-              형제/자매 학생 정보도 함께 입력하기
+              학생 추가
             </label>
           </section>
 
@@ -394,68 +371,104 @@ export default function InviteEntryPage() {
 
             <label className={styles.field}>
               <span>학부모 연락처 (필수)</span>
-              <input
-                required
-                inputMode="numeric"
-                value={form.parentPhone}
-                onChange={(event) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    parentPhone: formatPhone(event.target.value),
-                  }))
+              <div
+                className={
+                  form.parentPhonePrefix === DIRECT_PHONE_PREFIX
+                    ? `${styles.phoneRow} ${styles.phoneRowCustom}`
+                    : styles.phoneRow
                 }
-                placeholder="010-1234-5678"
-              />
+              >
+                <select
+                  value={form.parentPhonePrefix}
+                  onChange={(event) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      parentPhonePrefix: event.target.value,
+                    }))
+                  }
+                >
+                  {PHONE_PREFIX_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                  <option value={DIRECT_PHONE_PREFIX}>직접입력</option>
+                </select>
+                {form.parentPhonePrefix === DIRECT_PHONE_PREFIX ? (
+                  <input
+                    required
+                    inputMode="numeric"
+                    maxLength={3}
+                    value={form.parentPhoneCustomPrefix}
+                    onChange={(event) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        parentPhoneCustomPrefix: normalizePhonePrefix(event.target.value),
+                      }))
+                    }
+                    placeholder="앞 3자리"
+                  />
+                ) : null}
+                <input
+                  required
+                  inputMode="numeric"
+                  maxLength={8}
+                  value={form.parentPhoneSuffix}
+                  onChange={(event) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      parentPhoneSuffix: normalizePhoneSuffix(event.target.value),
+                    }))
+                  }
+                  placeholder="뒤 8자리"
+                />
+              </div>
             </label>
 
             <label className={styles.field}>
-              <span>강사님께 전달할 사항 (선택)</span>
+              <span>강사님께 전달할 사항 (필수)</span>
+              <div className={styles.noteGuide}>
+                <p className={styles.noteGuideTitle}>
+                  교육 시 강사가 알아두어야 할 학생의 특이사항
+                  <br />
+                  ex)
+                </p>
+                <ul>
+                  <li>ADHD 약을 복용하고 있어요. 다소 산만한 모습을 보일 수도 있으니 양해 부탁드려요.</li>
+                  <li>이전 다른 교육에서 들었던 내용으로 인해, 성교육에 대한 거부감이 매우 커요.</li>
+                  <li>어려서 아버지를 여읜 터라, 해당 부분만 언급 조심 부탁드려요.</li>
+                  <li>학교에서 심한 장난과 성적인 욕설로 몇 번 문제를 겪었어요.</li>
+                  <li>참석 아이들 모두 포경수술을 했어요.</li>
+                </ul>
+                <p className={`${styles.noteGuideTitle} ${styles.noteGuideTitleSpaced}`}>
+                  교육 시 집중 전달 또는 언급 자제 요청사항
+                  <br />
+                  ex)
+                </p>
+                <ul>
+                  <li>세 명 모두 미디어 노출이 없어서 또래보다 어려요. 잘 맞춰서 교육 부탁드려요.</li>
+                  <li>아이가 이성에 관심이 많습니다. SNS나 유튜브 등 미디어 이용 시 주의점 잘 알려주시면 좋겠어요.</li>
+                  <li>좋아하는 사람에 대한 지켜야할 선과 책임감에 대해 콕 짚어주시기 바라요.</li>
+                  <li>동성애를 무조건 존중해야 한다거나 성별을 선택할 수 있다는 내용 등은 원하지 않아요.</li>
+                </ul>
+              </div>
               <textarea
+                required
                 rows={4}
                 value={form.noteToInstructor}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, noteToInstructor: event.target.value }))
-                }
-                placeholder="예: 학생이 낯을 가려서 초반 적응 시간이 필요할 수 있어요."
+                onChange={(event) => setForm((prev) => ({ ...prev, noteToInstructor: event.target.value }))}
+                placeholder="강사님께 전달하고 싶은 내용을 자유롭게 작성해 주세요."
               />
             </label>
           </section>
 
           {error ? <p className={styles.errorText}>{error}</p> : null}
+          {successMessage ? <p className={styles.infoText}>{successMessage}</p> : null}
 
           <button type="submit" disabled={!canSubmit || submitting} className={styles.submitButton}>
             {submitting ? '입력 중...' : '정보 입력 완료'}
           </button>
         </form>
-
-        <aside className={styles.resultPanel}>
-          <h2 className={`font-display ${styles.resultTitle}`}>입력 완료 안내</h2>
-          {success ? (
-            <div className={styles.resultBox}>
-              <p className={styles.resultMessage}>입력 완료! 아래 수정 링크를 저장해 주세요.</p>
-              <p className={styles.resultLabel}>수정 링크</p>
-              <ul className={styles.resultList}>
-                {success.editUrls.map((url) => (
-                  <li key={url} className={styles.resultListItem}>
-                    <a className={styles.resultLink} href={url}>
-                      {url}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-              <button type="button" className={styles.copyButton} onClick={onCopyEditUrls}>
-                수정 링크 전체 복사
-              </button>
-              {copyState === 'copiedAll' ? <p className={styles.copyState}>수정 링크를 복사했습니다.</p> : null}
-              {copyState === 'failed' ? <p className={styles.copyError}>복사에 실패했습니다. 직접 복사해 주세요.</p> : null}
-            </div>
-          ) : (
-            <div className={styles.placeholder}>
-              <p>입력을 완료하면 수정 링크가 표시됩니다.</p>
-              <p>형제/자매를 함께 등록한 경우 학생 수만큼 수정 링크가 발급됩니다.</p>
-            </div>
-          )}
-        </aside>
       </section>
     </main>
   );

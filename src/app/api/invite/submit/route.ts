@@ -26,7 +26,7 @@ const inviteSubmitSchema = z.object({
     .trim()
     .min(1, '연락처를 입력해주세요')
     .refine(isValidOptionalPhoneInput, '연락처는 숫자 10~11자리 형식이어야 합니다.'),
-  noteToInstructor: z.string().optional(),
+  noteToInstructor: z.string().trim().min(1, '강사님께 전달할 사항을 입력해주세요.'),
 });
 
 const MAX_SERIALIZABLE_RETRIES = 2;
@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     const data = validation.data;
     const normalizedParentPhone = normalizePhoneDigits(data.parentPhone);
     const normalizedParentName = data.parentName?.trim() || null;
-    const normalizedNoteToInstructor = data.noteToInstructor?.trim() || null;
+    const normalizedNoteToInstructor = data.noteToInstructor.trim();
 
     let result:
       | {

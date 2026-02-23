@@ -70,9 +70,9 @@ export async function POST(request: Request) {
           }
 
           const now = new Date();
-          const fixedExpiresAt = subDays(leaderLink.group.slot.startAt, 3);
+          const fixedExpiresAt = subDays(leaderLink.group.slot.startAt, 1);
           if (now > fixedExpiresAt) {
-            throw new ApiStatusError(409, '교육일 3일 전 이후에는 팀 공용 링크를 생성할 수 없습니다.');
+            throw new ApiStatusError(409, '교육일 전날 이후에는 팀 공용 링크를 생성할 수 없습니다.');
           }
 
           const existingSharedInvite = await tx.inviteLink.findFirst({

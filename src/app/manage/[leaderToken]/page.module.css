@@ -80,6 +80,22 @@
   color: rgba(58, 42, 32, 0.72);
 }
 
+.summaryActionButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 8px;
+  min-height: 38px;
+  border-radius: 10px;
+  border: 1px solid rgba(240, 147, 0, 0.44);
+  background: rgba(240, 147, 0, 0.1);
+  font-size: 14px;
+  font-weight: 600;
+  color: #8b3f13;
+  padding: 0 12px;
+  text-decoration: none;
+}
+
 .gridLayout {
   display: grid;
   grid-template-columns: 1fr;
@@ -121,6 +137,12 @@
   word-break: break-all;
 }
 
+.resultPlaceholder {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: rgba(58, 42, 32, 0.72);
+}
+
 .buttonRow {
   margin-top: 10px;
   display: grid;
@@ -138,6 +160,11 @@
   color: #8b3f13;
   padding: 0 10px;
   cursor: pointer;
+}
+
+.copyButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .memberList {
@@ -198,6 +225,27 @@
 .copyError,
 .errorText {
   color: #b93f29;
+}
+
+.memberActions {
+  margin-top: 8px;
+}
+
+.memberDeleteButton {
+  min-height: 32px;
+  border-radius: 9px;
+  border: 1px solid rgba(185, 63, 41, 0.45);
+  background: rgba(185, 63, 41, 0.08);
+  color: #9b2f1c;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 0 10px;
+  cursor: pointer;
+}
+
+.memberDeleteButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 @media (min-width: 760px) {

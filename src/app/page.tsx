@@ -17,7 +17,7 @@ export default function Home() {
                         소그룹 정보 입력하기
                     </Link>
                     <Link href="/groupinfo/lookup" className={styles.secondaryCta}>
-                        예약 내역 조회
+                        예약 내역 조회/수정
                     </Link>
                 </div>
                 <p className={styles.note}>

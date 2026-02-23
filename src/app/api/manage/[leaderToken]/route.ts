@@ -10,28 +10,47 @@ type RouteContext = {
 export async function GET(_request: Request, { params }: RouteContext) {
   try {
     const { leaderToken } = await params;
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
 
     const leaderLink = await prisma.inviteLink.findUnique({
       where: { token: leaderToken },
       include: {
-            group: {
-              include: {
-                slot: {
-                  select: {
-                    startAt: true,
-                    endAt: true,
-                    instructorId: true,
-                  },
+        group: {
+          include: {
+            leader: {
+              select: {
+                phone: true,
+              },
+            },
+            slot: {
+              select: {
+                startAt: true,
+                endAt: true,
+                instructorId: true,
+              },
+            },
+            inviteLinks: {
+              where: {
+                purpose: 'roster_entry',
+              },
+              orderBy: {
+                createdAt: 'desc',
+              },
+              take: 1,
+              select: {
+                token: true,
+                expiresAt: true,
+              },
+            },
+            groupMembers: {
+              where: {
+                status: {
+                  not: 'removed',
                 },
-                groupMembers: {
-                  where: {
-                    status: {
-                      not: 'removed',
-                    },
-                  },
-                  include: {
-                    child: true,
-                  },
+              },
+              include: {
+                child: true,
+              },
               orderBy: {
                 createdAt: 'asc',
               },
@@ -67,6 +86,13 @@ export async function GET(_request: Request, { params }: RouteContext) {
 
     const completedCount = members.filter((member) => member.status === 'completed').length;
     const pendingCount = members.filter((member) => member.status === 'pending').length;
+    const sharedInvite = leaderLink.group.inviteLinks[0] ?? null;
+    const leaderEditableMember = leaderLink.group.groupMembers.find(
+      (member) =>
+        member.status !== 'removed' &&
+        member.parentPhone === leaderLink.group.leader.phone &&
+        Boolean(member.editToken)
+    );
 
     return NextResponse.json({
       success: true,
@@ -76,6 +102,9 @@ export async function GET(_request: Request, { params }: RouteContext) {
       classStartAt: leaderLink.group.slot.startAt,
       classEndAt: leaderLink.group.slot.endAt,
       instructorName: leaderLink.group.slot.instructorId,
+      sharedInviteUrl: sharedInvite ? `${baseUrl}/invite/${sharedInvite.token}` : null,
+      sharedInviteExpiresAt: sharedInvite?.expiresAt ?? null,
+      leaderEditToken: leaderEditableMember?.editToken ?? null,
       headcountDeclared: leaderLink.group.headcountDeclared,
       headcountFinal: leaderLink.group.headcountFinal,
       counts: {

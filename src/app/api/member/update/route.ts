@@ -6,6 +6,7 @@ import { isSerializationConflictError, shouldRetrySerializableError } from '@/li
 import { normalizeNullablePhone } from '@/lib/phone';
 import { isValidOptionalPhoneInput } from '@/lib/phone-validation';
 import { Prisma } from '@prisma/client';
+import { subDays } from 'date-fns';
 import { z } from 'zod';
 
 const memberUpdateSchema = z.object({
@@ -50,7 +51,15 @@ export async function PATCH(request: Request) {
                     const member = await tx.groupMember.findUnique({
                         where: { editToken: data.editToken },
                         include: {
-                            group: true,
+                            group: {
+                                include: {
+                                    slot: {
+                                        select: {
+                                            startAt: true,
+                                        },
+                                    },
+                                },
+                            },
                             child: true,
                         },
                     });
@@ -62,6 +71,11 @@ export async function PATCH(request: Request) {
                     // 2-1. Roster Status 확인
                     if (member.group.rosterStatus === 'locked') {
                         throw new ApiStatusError(409, 'Roster is locked. Modifications are not allowed.');
+                    }
+
+                    const editDeadline = subDays(member.group.slot.startAt, 1);
+                    if (new Date() > editDeadline) {
+                        throw new ApiStatusError(409, '교육일 전날 이후에는 수정할 수 없습니다.');
                     }
 
                     const childUpdateData: Prisma.ChildUpdateInput = {};

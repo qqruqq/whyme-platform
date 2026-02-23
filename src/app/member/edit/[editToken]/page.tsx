@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import styles from './page.module.css';
 
@@ -24,6 +24,13 @@ type MemberFetchResponse = {
   groupMemberId: string;
   rosterStatus: string;
   isLocked: boolean;
+  relatedMembers: {
+    groupMemberId: string;
+    childName: string;
+    childGrade: string | null;
+    editToken: string;
+    isCurrent: boolean;
+  }[];
   member: {
     childName: string;
     childGrade: string | null;
@@ -37,6 +44,13 @@ type MemberFetchResponse = {
     createdAt: string;
     updatedAt: string;
   };
+};
+
+type MemberRemoveResponse = {
+  success: boolean;
+  groupId: string;
+  groupMemberId: string;
+  nextEditToken: string | null;
 };
 
 type ApiErrorPayload = {
@@ -162,6 +176,7 @@ function responseToForm(data: MemberFetchResponse): EditForm {
 
 export default function MemberEditPage() {
   const params = useParams<{ editToken: string }>();
+  const router = useRouter();
   const editToken = (params?.editToken || '').toString();
 
   const [loading, setLoading] = useState(true);
@@ -172,12 +187,15 @@ export default function MemberEditPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
+  const [removingToken, setRemovingToken] = useState<string | null>(null);
+  const [removeError, setRemoveError] = useState<string | null>(null);
+  const [removeSuccess, setRemoveSuccess] = useState<string | null>(null);
 
   const canSubmit = useMemo(() => {
     if (!form || !data) return false;
-    if (data.isLocked || submitting) return false;
+    if (data.isLocked || submitting || Boolean(removingToken)) return false;
     return Boolean(form.childName.trim());
-  }, [form, data, submitting]);
+  }, [form, data, submitting, removingToken]);
 
   const fetchMemberData = useCallback(async () => {
     if (!editToken) {
@@ -211,6 +229,64 @@ export default function MemberEditPage() {
   useEffect(() => {
     fetchMemberData();
   }, [fetchMemberData]);
+
+  const onRemoveMember = useCallback(
+    async (targetEditToken: string, targetChildName: string) => {
+      if (!data || data.isLocked || submitting || removingToken) {
+        return;
+      }
+
+      const confirmed = window.confirm(
+        `${targetChildName || '해당 학생'} 정보를 삭제할까요?\n삭제 후에는 해당 학생이 명단에서 제외됩니다.`
+      );
+      if (!confirmed) {
+        return;
+      }
+
+      setRemovingToken(targetEditToken);
+      setRemoveError(null);
+      setRemoveSuccess(null);
+      setSubmitError(null);
+      setSubmitSuccess(null);
+
+      try {
+        const response = await fetch('/api/member/remove', {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            editToken: targetEditToken,
+          }),
+        });
+
+        const payload: unknown = await response.json().catch(() => null);
+        if (!response.ok) {
+          setRemoveError(parseApiError(response.status, payload));
+          return;
+        }
+
+        const result = payload as MemberRemoveResponse;
+
+        if (targetEditToken === editToken) {
+          if (result.nextEditToken) {
+            router.replace(`/member/edit/${result.nextEditToken}`);
+          } else {
+            router.replace('/');
+          }
+          return;
+        }
+
+        setRemoveSuccess('학생 정보를 삭제했습니다.');
+        await fetchMemberData();
+      } catch (_error) {
+        setRemoveError('서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.');
+      } finally {
+        setRemovingToken(null);
+      }
+    },
+    [data, editToken, fetchMemberData, removingToken, router, submitting]
+  );
 
   const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -270,6 +346,39 @@ export default function MemberEditPage() {
 
       {data && form ? (
         <section className={styles.layout}>
+          <section className={styles.relatedMemberPanel}>
+            <p className={styles.relatedMemberTitle}>등록된 학생 목록</p>
+            <ul className={styles.relatedMemberList}>
+              {(data.relatedMembers ?? []).map((relatedMember, index) => (
+                <li key={relatedMember.groupMemberId} className={styles.relatedMemberCard}>
+                  <p className={styles.relatedMemberName}>
+                    {index + 1}. {relatedMember.childName}
+                    {relatedMember.childGrade ? ` (${relatedMember.childGrade})` : ''}
+                  </p>
+                  <div className={styles.relatedMemberActions}>
+                    {relatedMember.isCurrent ? (
+                      <span className={styles.relatedMemberCurrent}>현재 수정 중</span>
+                    ) : (
+                      <Link href={`/member/edit/${relatedMember.editToken}`} className={styles.relatedMemberMoveButton}>
+                        이 학생 수정 페이지
+                      </Link>
+                    )}
+                    <button
+                      type="button"
+                      className={styles.relatedMemberDeleteButton}
+                      disabled={data.isLocked || submitting || Boolean(removingToken)}
+                      onClick={() => onRemoveMember(relatedMember.editToken, relatedMember.childName)}
+                    >
+                      {removingToken === relatedMember.editToken ? '삭제 중...' : '학생 삭제'}
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+            {removeError ? <p className={styles.errorText}>{removeError}</p> : null}
+            {removeSuccess ? <p className={styles.successText}>{removeSuccess}</p> : null}
+          </section>
+
           <form onSubmit={onSubmit} className={styles.formPanel}>
             <section className={styles.block}>
               <h2 className={styles.blockTitle}>학생 정보</h2>

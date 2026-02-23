@@ -217,6 +217,20 @@
   display: none;
 }
 
+.toggleRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(58, 42, 32, 0.84);
+}
+
+.toggleRow input {
+  width: 18px;
+  height: 18px;
+}
+
 .noteGuide {
   border: 1px solid rgba(233, 206, 184, 0.95);
   border-radius: 12px;
