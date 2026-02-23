@@ -16,6 +16,13 @@ export async function GET(_request: Request, { params }: RouteContext) {
       include: {
             group: {
               include: {
+                slot: {
+                  select: {
+                    startAt: true,
+                    endAt: true,
+                    instructorId: true,
+                  },
+                },
                 groupMembers: {
                   where: {
                     status: {
@@ -53,7 +60,6 @@ export async function GET(_request: Request, { params }: RouteContext) {
       childGrade: member.child.grade,
       parentName: member.parentName,
       parentPhone: member.parentPhone,
-      noteToInstructor: member.noteToInstructor,
       status: member.status,
       createdAt: member.createdAt,
       updatedAt: member.updatedAt,
@@ -67,6 +73,9 @@ export async function GET(_request: Request, { params }: RouteContext) {
       groupId: leaderLink.group.groupId,
       status: leaderLink.group.status,
       rosterStatus: leaderLink.group.rosterStatus,
+      classStartAt: leaderLink.group.slot.startAt,
+      classEndAt: leaderLink.group.slot.endAt,
+      instructorName: leaderLink.group.slot.instructorId,
       headcountDeclared: leaderLink.group.headcountDeclared,
       headcountFinal: leaderLink.group.headcountFinal,
       counts: {

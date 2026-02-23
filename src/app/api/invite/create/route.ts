@@ -5,13 +5,12 @@ import { isSerializationConflictError, shouldRetrySerializableError } from '@/li
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
-import { addDays } from 'date-fns';
+import { subDays } from 'date-fns';
 
 const SHARED_INVITE_MAX_USES = 2147483647;
 
 const inviteCreateSchema = z.object({
   leaderToken: z.string().min(1, 'leaderToken is required'),
-  expiresInDays: z.number().int().min(1).max(90).default(14),
 });
 
 const MAX_SERIALIZABLE_RETRIES = 2;
@@ -28,12 +27,12 @@ export async function POST(request: Request) {
       );
     }
 
-    const { leaderToken, expiresInDays } = validation.data;
-    const expiresAt = addDays(new Date(), expiresInDays);
+    const { leaderToken } = validation.data;
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
 
     let inviteToken: string | null = null;
     let groupId: string | null = null;
+    let inviteExpiresAt: Date | null = null;
     let createdNew = false;
 
     for (let attempt = 0; attempt <= MAX_SERIALIZABLE_RETRIES; attempt += 1) {
@@ -41,7 +40,17 @@ export async function POST(request: Request) {
         const result = await prisma.$transaction(async (tx) => {
           const leaderLink = await tx.inviteLink.findUnique({
             where: { token: leaderToken },
-            include: { group: true },
+            include: {
+              group: {
+                include: {
+                  slot: {
+                    select: {
+                      startAt: true,
+                    },
+                  },
+                },
+              },
+            },
           });
 
           if (!leaderLink) {
@@ -61,6 +70,11 @@ export async function POST(request: Request) {
           }
 
           const now = new Date();
+          const fixedExpiresAt = subDays(leaderLink.group.slot.startAt, 3);
+          if (now > fixedExpiresAt) {
+            throw new ApiStatusError(409, '교육일 3일 전 이후에는 팀 공용 링크를 생성할 수 없습니다.');
+          }
+
           const existingSharedInvite = await tx.inviteLink.findFirst({
             where: {
               groupId: leaderLink.groupId,
@@ -72,14 +86,27 @@ export async function POST(request: Request) {
               createdAt: 'desc',
             },
             select: {
+              inviteId: true,
               token: true,
+              expiresAt: true,
             },
           });
 
           if (existingSharedInvite) {
+            if (
+              !existingSharedInvite.expiresAt ||
+              existingSharedInvite.expiresAt.getTime() !== fixedExpiresAt.getTime()
+            ) {
+              await tx.inviteLink.update({
+                where: { inviteId: existingSharedInvite.inviteId },
+                data: { expiresAt: fixedExpiresAt },
+              });
+            }
+
             return {
               groupId: leaderLink.groupId,
               inviteToken: existingSharedInvite.token,
+              expiresAt: fixedExpiresAt,
               createdNew: false,
             };
           }
@@ -91,7 +118,7 @@ export async function POST(request: Request) {
               purpose: 'roster_entry',
               maxUses: SHARED_INVITE_MAX_USES,
               usedCount: 0,
-              expiresAt,
+              expiresAt: fixedExpiresAt,
             },
             select: {
               token: true,
@@ -101,12 +128,14 @@ export async function POST(request: Request) {
           return {
             groupId: leaderLink.groupId,
             inviteToken: invite.token,
+            expiresAt: fixedExpiresAt,
             createdNew: true,
           };
         }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
         inviteToken = result.inviteToken;
         groupId = result.groupId;
+        inviteExpiresAt = result.expiresAt;
         createdNew = result.createdNew;
         break;
       } catch (error) {
@@ -118,7 +147,7 @@ export async function POST(request: Request) {
       }
     }
 
-    if (!inviteToken || !groupId) {
+    if (!inviteToken || !groupId || !inviteExpiresAt) {
       throw new ApiStatusError(503, 'Temporary concurrency issue. Please retry.');
     }
 
@@ -131,6 +160,7 @@ export async function POST(request: Request) {
         createdCount: createdNew ? 1 : 0,
         inviteUrl,
         inviteUrls: [inviteUrl],
+        expiresAt: inviteExpiresAt.toISOString(),
         reusedExisting: !createdNew,
       },
       { status: 201 }

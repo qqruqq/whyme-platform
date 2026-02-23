@@ -12,7 +12,6 @@ type Member = {
     childGrade: string | null;
     parentName: string | null;
     parentPhone: string | null;
-    noteToInstructor: string | null;
     status: string;
     createdAt: string;
     updatedAt: string;
@@ -23,6 +22,9 @@ type ManageData = {
     groupId: string;
     status: string;
     rosterStatus: string;
+    classStartAt: string;
+    classEndAt: string;
+    instructorName: string;
     headcountDeclared: number | null;
     headcountFinal: number | null;
     counts: {
@@ -39,6 +41,7 @@ type InviteCreateResult = {
     createdCount: number;
     inviteUrl: string;
     inviteUrls: string[];
+    expiresAt: string;
     reusedExisting: boolean;
 };
 
@@ -64,6 +67,22 @@ function parseApiError(payload: unknown): string {
     return typed.error ?? '요청 처리 중 오류가 발생했습니다.';
 }
 
+function formatDateTime(value: string | null | undefined): string {
+    if (!value) return '-';
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '-';
+
+    return new Intl.DateTimeFormat('ko-KR', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        weekday: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+    }).format(date);
+}
+
 export default function ManagePage() {
     const params = useParams<{ leaderToken: string }>();
     const leaderToken = (params?.leaderToken || '').toString();
@@ -72,12 +91,13 @@ export default function ManagePage() {
     const [loadingError, setLoadingError] = useState<string | null>(null);
     const [data, setData] = useState<ManageData | null>(null);
 
-    const [expiresInDays, setExpiresInDays] = useState(14);
-    const [creating, setCreating] = useState(false);
-    const [createError, setCreateError] = useState<string | null>(null);
-    const [createMessage, setCreateMessage] = useState<string | null>(null);
-    const [createdInviteUrls, setCreatedInviteUrls] = useState<string[]>([]);
-    const [copyState, setCopyState] = useState<'idle' | 'copiedAll' | 'failed'>('idle');
+    const [inviteLoading, setInviteLoading] = useState(false);
+    const [inviteError, setInviteError] = useState<string | null>(null);
+    const [inviteMessage, setInviteMessage] = useState<string | null>(null);
+    const [sharedInviteUrl, setSharedInviteUrl] = useState<string | null>(null);
+    const [inviteExpiresAt, setInviteExpiresAt] = useState<string | null>(null);
+    const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
+    const [shareState, setShareState] = useState<'idle' | 'shared' | 'failed'>('idle');
 
     const isLocked = useMemo(() => data?.rosterStatus === 'locked', [data?.rosterStatus]);
 
@@ -104,19 +124,12 @@ export default function ManagePage() {
         }
     };
 
-    useEffect(() => {
-        fetchManageData();
-    }, [leaderToken]);
+    const ensureSharedInvite = async () => {
+        if (!leaderToken) return;
 
-    const onCreateInvites = async (event: React.FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
-        if (creating || !leaderToken) return;
-
-        setCreating(true);
-        setCreateError(null);
-        setCreateMessage(null);
-        setCreatedInviteUrls([]);
-        setCopyState('idle');
+        setInviteLoading(true);
+        setInviteError(null);
+        setInviteMessage(null);
 
         try {
             const response = await fetch('/api/invite/create', {
@@ -126,48 +139,85 @@ export default function ManagePage() {
                 },
                 body: JSON.stringify({
                     leaderToken,
-                    expiresInDays,
                 }),
             });
 
             const payload: unknown = await response.json().catch(() => null);
             if (!response.ok) {
-                setCreateError(parseApiError(payload));
+                setInviteError(parseApiError(payload));
                 return;
             }
 
             const result = payload as InviteCreateResult;
-            setCreatedInviteUrls(result.inviteUrls);
-            setCreateMessage(
-                result.reusedExisting
-                    ? '기존 팀 공용 링크를 불러왔습니다.'
-                    : '새 팀 공용 링크를 생성했습니다.'
-            );
-            await fetchManageData();
+            setSharedInviteUrl(result.inviteUrl);
+            setInviteExpiresAt(result.expiresAt);
+            setInviteMessage(result.reusedExisting ? '기존 팀 공용 링크를 불러왔습니다.' : '팀 공용 링크를 생성했습니다.');
         } catch (_err) {
-            setCreateError('서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.');
+            setInviteError('서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.');
         } finally {
-            setCreating(false);
+            setInviteLoading(false);
         }
     };
 
-    const onCopyAll = async () => {
-        if (createdInviteUrls.length === 0) return;
+    useEffect(() => {
+        fetchManageData();
+    }, [leaderToken]);
+
+    useEffect(() => {
+        setCopyState('idle');
+        setShareState('idle');
+        setSharedInviteUrl(null);
+        setInviteExpiresAt(null);
+        ensureSharedInvite();
+    }, [leaderToken]);
+
+    const onCopyInvite = async () => {
+        if (!sharedInviteUrl) return;
 
         try {
-            await navigator.clipboard.writeText(createdInviteUrls.join('\n'));
-            setCopyState('copiedAll');
+            await navigator.clipboard.writeText(sharedInviteUrl);
+            setCopyState('copied');
         } catch (_err) {
             setCopyState('failed');
         }
     };
+
+    const onShareInvite = async () => {
+        if (!sharedInviteUrl) return;
+
+        if (typeof navigator.share === 'function') {
+            try {
+                await navigator.share({
+                    title: '와이미 소그룹 교육 정보 입력',
+                    text: '팀 공용 정보 입력 링크를 공유합니다.',
+                    url: sharedInviteUrl,
+                });
+                setShareState('shared');
+                return;
+            } catch (error) {
+                if (error instanceof DOMException && error.name === 'AbortError') {
+                    return;
+                }
+            }
+        }
+
+        try {
+            await navigator.clipboard.writeText(sharedInviteUrl);
+            setCopyState('copied');
+            setShareState('shared');
+        } catch (_err) {
+            setShareState('failed');
+        }
+    };
+
+    const completedAndDeclared = `${data?.counts.completed ?? 0}/${data?.headcountDeclared ?? '-'}명`;
 
     return (
         <main className={styles.page}>
             <section className={styles.hero}>
                 <p className={styles.badge}>Leader Manage</p>
                 <h1 className={`font-display ${styles.title}`}>대표 학부모 관리 페이지</h1>
-                <p className={styles.description}>팀원 초대 링크를 생성하고 현재 명단 상태를 확인할 수 있습니다.</p>
+                <p className={styles.description}>팀원 입력 링크를 바로 공유하고 현재 명단을 확인할 수 있습니다.</p>
                 <Link href="/" className={styles.backLink}>
                     홈으로 돌아가기
                 </Link>
@@ -180,76 +230,54 @@ export default function ManagePage() {
                 <>
                     <section className={styles.summaryGrid}>
                         <article className={styles.summaryCard}>
-                            <p className={styles.summaryLabel}>그룹 상태</p>
-                            <p className={styles.summaryValue}>{data.status}</p>
+                            <p className={styles.summaryLabel}>예약 일정</p>
+                            <p className={styles.summaryValue}>{formatDateTime(data.classStartAt)}</p>
+                            <p className={styles.summarySub}>강사: {data.instructorName}</p>
                         </article>
                         <article className={styles.summaryCard}>
-                            <p className={styles.summaryLabel}>로스터 상태</p>
-                            <p className={styles.summaryValue}>{data.rosterStatus}</p>
-                        </article>
-                        <article className={styles.summaryCard}>
-                            <p className={styles.summaryLabel}>등록 인원</p>
-                            <p className={styles.summaryValue}>
-                                {data.counts.completed}/{data.headcountDeclared ?? '-'}명
-                            </p>
-                        </article>
-                        <article className={styles.summaryCard}>
-                            <p className={styles.summaryLabel}>전체 입력 수</p>
-                            <p className={styles.summaryValue}>{data.counts.total}건</p>
+                            <p className={styles.summaryLabel}>팀 공용 링크 유효기간</p>
+                            <p className={styles.summaryValue}>교육일 3일 전까지</p>
+                            <p className={styles.summarySub}>만료 시각: {formatDateTime(inviteExpiresAt)}</p>
                         </article>
                     </section>
 
                     <section className={styles.gridLayout}>
                         <article className={styles.panel}>
                             <h2 className={`font-display ${styles.panelTitle}`}>팀 공용 초대 링크</h2>
-                            <form onSubmit={onCreateInvites} className={styles.form}>
-                                <label className={styles.field}>
-                                    <span>유효기간 (일)</span>
-                                    <select
-                                        value={expiresInDays}
-                                        onChange={(event) => setExpiresInDays(Number(event.target.value))}
-                                    >
-                                        {[3, 7, 14, 21, 30, 60, 90].map((value) => (
-                                            <option key={value} value={value}>
-                                                {value}일
-                                            </option>
-                                        ))}
-                                    </select>
-                                </label>
+                            {inviteLoading ? <p className={styles.infoText}>링크 준비 중...</p> : null}
+                            {inviteError ? <p className={styles.errorText}>{inviteError}</p> : null}
+                            {inviteMessage ? <p className={styles.infoText}>{inviteMessage}</p> : null}
 
-                                {createError ? <p className={styles.errorText}>{createError}</p> : null}
-                                {createMessage ? <p className={styles.infoText}>{createMessage}</p> : null}
-
-                                <button type="submit" disabled={creating || isLocked} className={styles.submitButton}>
-                                    {creating ? '처리 중...' : isLocked ? '잠금 상태로 생성 불가' : '공용 링크 확인/생성'}
-                                </button>
-                            </form>
-
-                            {createdInviteUrls.length > 0 ? (
+                            {sharedInviteUrl ? (
                                 <div className={styles.inviteResult}>
-                                    <div className={styles.inviteHeader}>
-                                        <p className={styles.resultLabel}>생성된 초대 링크</p>
-                                        <button type="button" className={styles.copyButton} onClick={onCopyAll}>
-                                            전체 복사
+                                    <p className={styles.resultLabel}>아래 링크를 팀원에게 공유해 주세요.</p>
+                                    <a className={styles.resultLink} href={sharedInviteUrl}>
+                                        {sharedInviteUrl}
+                                    </a>
+                                    <div className={styles.buttonRow}>
+                                        <button type="button" className={styles.copyButton} onClick={onCopyInvite}>
+                                            링크 복사
+                                        </button>
+                                        <button type="button" className={styles.copyButton} onClick={onShareInvite}>
+                                            공유하기
                                         </button>
                                     </div>
-
-                                    <ul className={styles.urlList}>
-                                        {createdInviteUrls.map((url) => (
-                                            <li key={url}>
-                                                <a href={url}>{url}</a>
-                                            </li>
-                                        ))}
-                                    </ul>
-
-                                    {copyState === 'copiedAll' ? <p className={styles.copyState}>링크를 복사했습니다.</p> : null}
+                                    {copyState === 'copied' ? <p className={styles.copyState}>링크를 복사했습니다.</p> : null}
                                     {copyState === 'failed' ? <p className={styles.copyError}>복사에 실패했습니다.</p> : null}
+                                    {shareState === 'shared' ? <p className={styles.copyState}>공유 창을 열었습니다.</p> : null}
+                                    {shareState === 'failed' ? <p className={styles.copyError}>공유에 실패했습니다.</p> : null}
                                 </div>
+                            ) : null}
+
+                            {isLocked ? (
+                                <p className={styles.infoText}>명단이 잠겨 있어 링크를 새로 만들 수 없습니다.</p>
                             ) : null}
                         </article>
 
                         <article className={styles.panel}>
-                            <h2 className={`font-display ${styles.panelTitle}`}>현재 명단</h2>
+                            <h2 className={`font-display ${styles.panelTitle}`}>현재 명단 ({completedAndDeclared})</h2>
+                            <p className={styles.infoText}>전체 입력 수: {data.counts.total}건</p>
+
                             {data.members.length === 0 ? (
                                 <p className={styles.infoText}>아직 입력된 팀원 정보가 없습니다.</p>
                             ) : (
@@ -266,9 +294,6 @@ export default function ManagePage() {
                                             <p className={styles.memberMeta}>
                                                 보호자: {member.parentName || '-'} / {member.parentPhone || '-'}
                                             </p>
-                                            {member.noteToInstructor ? (
-                                                <p className={styles.memberNote}>메모: {member.noteToInstructor}</p>
-                                            ) : null}
                                         </li>
                                     ))}
                                 </ul>

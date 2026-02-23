@@ -48,7 +48,7 @@
 
 .summaryGrid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr;
   gap: 10px;
 }
 
@@ -69,8 +69,15 @@
 
 .summaryValue {
   margin: 6px 0 0;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 700;
+  line-height: 1.4;
+}
+
+.summarySub {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: rgba(58, 42, 32, 0.72);
 }
 
 .gridLayout {
@@ -92,96 +99,49 @@
   font-size: 24px;
 }
 
-.form {
-  display: grid;
-  gap: 10px;
-}
-
-.field {
-  display: grid;
-  gap: 6px;
-}
-
-.field span {
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.field select {
-  min-height: 44px;
-  border-radius: 12px;
-  border: 1px solid #e8cdb8;
-  padding: 0 10px;
-  font: inherit;
-  font-size: 15px;
-  background: #fff;
-}
-
-.submitButton {
-  border: 0;
-  border-radius: 14px;
-  min-height: 50px;
-  font-size: 16px;
-  font-weight: 700;
-  color: #fff;
-  background: linear-gradient(136deg, var(--color-brand-rust), var(--color-brand-orange));
-  box-shadow: 0 10px 22px rgba(240, 147, 0, 0.26);
-  cursor: pointer;
-}
-
-.submitButton:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
 .inviteResult {
-  margin-top: 12px;
+  margin-top: 10px;
   border: 1px solid rgba(229, 204, 181, 0.96);
   border-radius: 12px;
   background: #fff;
-  padding: 10px;
-}
-
-.inviteHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  padding: 12px;
 }
 
 .resultLabel {
   margin: 0;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
 }
 
+.resultLink {
+  display: block;
+  margin-top: 8px;
+  color: #8e4116;
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.buttonRow {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
 .copyButton {
-  min-height: 34px;
+  min-height: 38px;
   border-radius: 10px;
   border: 1px solid rgba(240, 147, 0, 0.44);
   background: rgba(240, 147, 0, 0.1);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   color: #8b3f13;
   padding: 0 10px;
   cursor: pointer;
 }
 
-.urlList {
-  margin: 10px 0 0;
-  padding-left: 18px;
-  display: grid;
-  gap: 6px;
-}
-
-.urlList a {
-  color: #8e4116;
-  font-size: 13px;
-  word-break: break-all;
-}
-
 .memberList {
-  margin: 0;
+  margin: 10px 0 0;
   padding: 0;
   list-style: none;
   display: grid;
@@ -218,7 +178,6 @@
 }
 
 .memberMeta,
-.memberNote,
 .infoText,
 .copyState,
 .copyError,
@@ -243,12 +202,18 @@
 
 @media (min-width: 760px) {
   .summaryGrid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: 1fr 1fr;
   }
 }
 
 @media (min-width: 1080px) {
   .gridLayout {
     grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  .buttonRow {
+    grid-template-columns: 1fr;
   }
 }
