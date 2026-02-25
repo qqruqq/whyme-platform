@@ -34,6 +34,10 @@ export async function GET(_request: Request, { params }: RouteContext) {
       return NextResponse.json({ error: 'Invalid edit token' }, { status: 404 });
     }
 
+    if (member.status === 'removed') {
+      return NextResponse.json({ error: 'Invalid edit token' }, { status: 404 });
+    }
+
     const editDeadline = subDays(member.group.slot.startAt, 1);
     const isLocked = member.group.rosterStatus === 'locked' || new Date() > editDeadline;
 
@@ -52,13 +56,21 @@ export async function GET(_request: Request, { params }: RouteContext) {
           select: {
             groupMemberId: true,
             editToken: true,
+            parentName: true,
+            parentPhone: true,
+            noteToInstructor: true,
+            status: true,
             child: {
               select: {
                 name: true,
                 grade: true,
+                priorStudentAttended: true,
+                siblingsPriorAttended: true,
+                parentPriorAttended: true,
               },
             },
             createdAt: true,
+            updatedAt: true,
           },
           orderBy: {
             createdAt: 'asc',
@@ -68,11 +80,19 @@ export async function GET(_request: Request, { params }: RouteContext) {
           {
             groupMemberId: member.groupMemberId,
             editToken: member.editToken,
+            parentName: member.parentName,
+            parentPhone: member.parentPhone,
+            noteToInstructor: member.noteToInstructor,
+            status: member.status,
             child: {
               name: member.child.name,
               grade: member.child.grade,
+              priorStudentAttended: member.child.priorStudentAttended,
+              siblingsPriorAttended: member.child.siblingsPriorAttended,
+              parentPriorAttended: member.child.parentPriorAttended,
             },
             createdAt: member.createdAt,
+            updatedAt: member.updatedAt,
           },
         ];
 
@@ -83,6 +103,15 @@ export async function GET(_request: Request, { params }: RouteContext) {
         childName: relatedMember.child.name,
         childGrade: relatedMember.child.grade,
         editToken: relatedMember.editToken as string,
+        parentName: relatedMember.parentName,
+        parentPhone: relatedMember.parentPhone,
+        noteToInstructor: relatedMember.noteToInstructor,
+        status: relatedMember.status,
+        priorStudentAttended: relatedMember.child.priorStudentAttended,
+        siblingsPriorAttended: relatedMember.child.siblingsPriorAttended,
+        parentPriorAttended: relatedMember.child.parentPriorAttended,
+        createdAt: relatedMember.createdAt,
+        updatedAt: relatedMember.updatedAt,
         isCurrent: relatedMember.groupMemberId === member.groupMemberId,
       }));
 

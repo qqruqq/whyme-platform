@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useMemo, useState } from 'react'
+import InlineCalendar from '@/components/InlineCalendar'
 import styles from './page.module.css'
 
 type LookupForm = {
@@ -166,11 +167,9 @@ export default function BookingLookupPage() {
         <form onSubmit={onSubmit} className={styles.form}>
           <div className={styles.field}>
             <span>교육 일정 (날짜)</span>
-            <input
-              type="date"
-              required
+            <InlineCalendar
               value={form.classDate}
-              onChange={(event) => setForm((prev) => ({ ...prev, classDate: event.target.value }))}
+              onChange={(nextDate) => setForm((prev) => ({ ...prev, classDate: nextDate }))}
             />
           </div>
 

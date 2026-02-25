@@ -1,17 +1,55 @@
 :root {
   --font-body: "Pretendard Variable", "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
   --font-display: "Pretendard Variable", "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
-  --color-ink: #3a2a20;
-  --color-bg-soft: #fff9f1;
-  --color-bg-panel: #fffefb;
-  --color-line: #f1d9c4;
-  --color-brand-peach: #f2a56d;
-  --color-brand-orange: #f09300;
-  --color-brand-coral: #ef7f62;
-  --color-brand-yellow: #f6e45b;
-  --color-brand-rust: #ea6500;
-  --shadow-soft: 0 14px 34px rgba(161, 86, 28, 0.16);
-  --shadow-card: 0 10px 26px rgba(146, 71, 31, 0.12);
+
+  /* Program palettes */
+  --program-small-group-boys: #f3b07a;
+  --program-1to1: #d8654c;
+  --program-online-sex-ed: #f6c95e;
+  --program-media-school: #1f4e79;
+  --program-leader-oneday: #e76f51;
+  --program-leader-regular: #4f6d5a;
+  --program-group-training: #3f6c8c;
+  --program-small-group-girls: #e89a9a;
+
+  --color-ink: #3b302b;
+  --color-ink-rgb: 59, 48, 43;
+  --color-ink-muted: #6f6058;
+
+  --color-bg-soft: #fdf8f2;
+  --color-bg-panel: #fffdf9;
+  --color-line: #ebd8c3;
+  --color-line-rgb: 235, 216, 195;
+  --color-line-strong: #ddc2a5;
+
+  --color-primary: var(--program-small-group-boys);
+  --color-primary-rgb: 243, 176, 122;
+  --color-primary-strong: #cf8753;
+
+  --color-secondary: #f8dfb3;
+  --color-secondary-rgb: 248, 223, 179;
+
+  --color-accent: #5f8a78;
+  --color-accent-rgb: 95, 138, 120;
+
+  --color-danger: #a65f52;
+  --color-danger-rgb: 166, 95, 82;
+
+  /* Backward-compatible aliases used by existing CSS modules */
+  --color-brand-peach: var(--color-secondary);
+  --color-brand-orange: var(--color-primary);
+  --color-brand-coral: #e89a78;
+  --color-brand-yellow: var(--color-secondary);
+  --color-brand-rust: var(--color-primary-strong);
+
+  --shadow-soft: 0 18px 42px rgba(88, 56, 34, 0.1);
+  --shadow-card: 0 10px 24px rgba(88, 56, 34, 0.08);
+
+  --radius-card: 22px;
+  --radius-control: 14px;
+  --radius-chip: 999px;
+
+  --motion-fast: 220ms;
 }
 
 * {
@@ -30,9 +68,11 @@ body {
   color: var(--color-ink);
   letter-spacing: -0.01em;
   background:
-    radial-gradient(120% 80% at 0% 0%, rgba(246, 228, 91, 0.23), transparent 56%),
-    radial-gradient(80% 80% at 100% 10%, rgba(239, 127, 98, 0.16), transparent 60%),
+    radial-gradient(120% 84% at 0% 0%, rgba(var(--color-secondary-rgb), 0.28), transparent 58%),
+    radial-gradient(92% 84% at 100% 12%, rgba(var(--color-accent-rgb), 0.09), transparent 62%),
     var(--color-bg-soft);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 a {
@@ -42,4 +82,20 @@ a {
 
 .font-display {
   font-family: var(--font-display);
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+button,
+input,
+select,
+textarea,
+a {
+  transition-duration: var(--motion-fast);
+  transition-timing-function: ease;
 }

@@ -8,7 +8,7 @@ export default function Home() {
                 <div className={styles.glowA} />
                 <div className={styles.glowB} />
                 <p className={styles.badge}>WhyMe Platform</p>
-                <h1 className={`font-display ${styles.title}`}>와이미 소그룹 교육 정보입력</h1>
+                <h1 className={`font-display ${styles.title}`}>와이미 소그룹 성교육 (남학생) 정보입력</h1>
                 <p className={styles.subtitle}>
                     대표 학부모가 예약한 교육일정에 대해 소그룹의 정보를 입력하는 페이지 입니다.
                 </p>
@@ -21,7 +21,7 @@ export default function Home() {
                     </Link>
                 </div>
                 <p className={styles.note}>
-                    예약 생성 후 발급되는 관리 링크로 팀원 초대 및 명단 상태를 확인할 수 있습니다.
+                    예약 생성 후 발급되는 관리 링크로 팀원 초대와 명단 관리를 진행할 수 있습니다.
                 </p>
             </section>
         </main>

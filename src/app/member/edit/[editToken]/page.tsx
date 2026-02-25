@@ -7,14 +7,21 @@ import styles from './page.module.css';
 
 type YesNo = 'yes' | 'no' | '';
 
-type EditForm = {
+type StudentEditForm = {
+  groupMemberId: string;
+  editToken: string;
   childName: string;
   childGrade: string;
   priorStudentAttended: YesNo;
   siblingsPriorAttended: YesNo;
   parentPriorAttended: YesNo;
+};
+
+type ParentForm = {
   parentName: string;
-  parentPhone: string;
+  parentPhonePrefix: string;
+  parentPhoneCustomPrefix: string;
+  parentPhoneSuffix: string;
   noteToInstructor: string;
 };
 
@@ -29,6 +36,15 @@ type MemberFetchResponse = {
     childName: string;
     childGrade: string | null;
     editToken: string;
+    parentName: string | null;
+    parentPhone: string | null;
+    noteToInstructor: string | null;
+    status: string;
+    priorStudentAttended: boolean | null;
+    siblingsPriorAttended: boolean | null;
+    parentPriorAttended: boolean | null;
+    createdAt: string;
+    updatedAt: string;
     isCurrent: boolean;
   }[];
   member: {
@@ -60,32 +76,39 @@ type ApiErrorPayload = {
   };
 };
 
-const GRADE_OPTIONS = [
-  '유아',
-  '초1',
-  '초2',
-  '초3',
-  '초4',
-  '초5',
-  '초6',
-  '중1',
-  '중2',
-  '중3',
-  '고1',
-  '고2',
-  '고3',
-  '기타',
-];
+const GRADE_OPTIONS = ['초3', '초4', '초5', '초6', '중1', '중2', '중3', '고1', '고2', '고3'];
+const DIRECT_PHONE_PREFIX = 'direct';
+const PHONE_PREFIX_OPTIONS = ['010', '011', '016', '017', '018', '019'];
+
+const INITIAL_PARENT_FORM: ParentForm = {
+  parentName: '',
+  parentPhonePrefix: '010',
+  parentPhoneCustomPrefix: '',
+  parentPhoneSuffix: '',
+  noteToInstructor: '',
+};
 
 function digitsOnly(value: string): string {
   return value.replace(/\D/g, '');
 }
 
-function formatPhone(value: string): string {
-  const digits = digitsOnly(value).slice(0, 11);
-  if (digits.length <= 3) return digits;
-  if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
-  return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+function normalizePhonePrefix(value: string): string {
+  return digitsOnly(value).slice(0, 3);
+}
+
+function normalizePhoneSuffix(value: string): string {
+  return digitsOnly(value).slice(0, 8);
+}
+
+function resolvePhonePrefix(selected: string, custom: string): string {
+  if (selected === DIRECT_PHONE_PREFIX) {
+    return normalizePhonePrefix(custom);
+  }
+  return normalizePhonePrefix(selected);
+}
+
+function composePhoneNumber(prefix: string, suffix: string): string {
+  return `${normalizePhonePrefix(prefix)}${normalizePhoneSuffix(suffix)}`;
 }
 
 function booleanToAnswer(value: boolean | null | undefined): YesNo {
@@ -98,6 +121,46 @@ function answerToBoolean(value: YesNo): boolean | undefined {
   if (value === 'yes') return true;
   if (value === 'no') return false;
   return undefined;
+}
+
+function studentComplete(student: StudentEditForm): boolean {
+  return Boolean(
+    student.childName.trim() &&
+      student.childGrade &&
+      student.priorStudentAttended &&
+      student.siblingsPriorAttended &&
+      student.parentPriorAttended
+  );
+}
+
+function pickFirstFilled(values: Array<string | null | undefined>): string {
+  for (const value of values) {
+    if (value && value.trim()) {
+      return value.trim();
+    }
+  }
+  return '';
+}
+
+function derivePhoneForm(phone: string | null | undefined) {
+  const normalizedDigits = digitsOnly(phone ?? '');
+  if (!normalizedDigits) {
+    return {
+      parentPhonePrefix: '010',
+      parentPhoneCustomPrefix: '',
+      parentPhoneSuffix: '',
+    };
+  }
+
+  const prefix = normalizePhonePrefix(normalizedDigits.slice(0, 3));
+  const suffix = normalizePhoneSuffix(normalizedDigits.slice(3));
+  const prefixInOptions = PHONE_PREFIX_OPTIONS.includes(prefix);
+
+  return {
+    parentPhonePrefix: prefixInOptions ? prefix : DIRECT_PHONE_PREFIX,
+    parentPhoneCustomPrefix: prefixInOptions ? '' : prefix,
+    parentPhoneSuffix: suffix,
+  };
 }
 
 function parseApiError(status: number, payload: unknown): string {
@@ -161,19 +224,6 @@ function YesNoField({ legend, name, value, disabled, onChange }: YesNoFieldProps
   );
 }
 
-function responseToForm(data: MemberFetchResponse): EditForm {
-  return {
-    childName: data.member.childName,
-    childGrade: data.member.childGrade ?? '',
-    priorStudentAttended: booleanToAnswer(data.member.priorStudentAttended),
-    siblingsPriorAttended: booleanToAnswer(data.member.siblingsPriorAttended),
-    parentPriorAttended: booleanToAnswer(data.member.parentPriorAttended),
-    parentName: data.member.parentName ?? '',
-    parentPhone: formatPhone(data.member.parentPhone ?? ''),
-    noteToInstructor: data.member.noteToInstructor ?? '',
-  };
-}
-
 export default function MemberEditPage() {
   const params = useParams<{ editToken: string }>();
   const router = useRouter();
@@ -182,20 +232,33 @@ export default function MemberEditPage() {
   const [loading, setLoading] = useState(true);
   const [loadingError, setLoadingError] = useState<string | null>(null);
   const [data, setData] = useState<MemberFetchResponse | null>(null);
-  const [form, setForm] = useState<EditForm | null>(null);
+  const [students, setStudents] = useState<StudentEditForm[]>([]);
+  const [parentForm, setParentForm] = useState<ParentForm>(INITIAL_PARENT_FORM);
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
+
   const [removingToken, setRemovingToken] = useState<string | null>(null);
   const [removeError, setRemoveError] = useState<string | null>(null);
   const [removeSuccess, setRemoveSuccess] = useState<string | null>(null);
 
+  const parentPhonePrefix = resolvePhonePrefix(parentForm.parentPhonePrefix, parentForm.parentPhoneCustomPrefix);
+  const parentPhoneSuffix = normalizePhoneSuffix(parentForm.parentPhoneSuffix);
+  const parentPhone = composePhoneNumber(parentPhonePrefix, parentPhoneSuffix);
+  const hasValidParentPhone = parentPhonePrefix.length === 3 && parentPhoneSuffix.length === 8;
+
   const canSubmit = useMemo(() => {
-    if (!form || !data) return false;
+    if (!data || students.length === 0) return false;
     if (data.isLocked || submitting || Boolean(removingToken)) return false;
-    return Boolean(form.childName.trim());
-  }, [form, data, submitting, removingToken]);
+
+    return Boolean(
+      parentForm.parentName.trim() &&
+        hasValidParentPhone &&
+        parentForm.noteToInstructor.trim() &&
+        students.every((student) => studentComplete(student))
+    );
+  }, [data, students, parentForm.parentName, parentForm.noteToInstructor, hasValidParentPhone, submitting, removingToken]);
 
   const fetchMemberData = useCallback(async () => {
     if (!editToken) {
@@ -218,7 +281,41 @@ export default function MemberEditPage() {
 
       const nextData = payload as MemberFetchResponse;
       setData(nextData);
-      setForm(responseToForm(nextData));
+
+      const nextStudents = nextData.relatedMembers.map((relatedMember) => ({
+        groupMemberId: relatedMember.groupMemberId,
+        editToken: relatedMember.editToken,
+        childName: relatedMember.childName,
+        childGrade: relatedMember.childGrade ?? '',
+        priorStudentAttended: booleanToAnswer(relatedMember.priorStudentAttended),
+        siblingsPriorAttended: booleanToAnswer(relatedMember.siblingsPriorAttended),
+        parentPriorAttended: booleanToAnswer(relatedMember.parentPriorAttended),
+      }));
+      setStudents(nextStudents);
+
+      const sharedParentName = pickFirstFilled([
+        ...nextData.relatedMembers.map((relatedMember) => relatedMember.parentName),
+        nextData.member.parentName,
+      ]);
+
+      const sharedParentPhone = pickFirstFilled([
+        ...nextData.relatedMembers.map((relatedMember) => relatedMember.parentPhone),
+        nextData.member.parentPhone,
+      ]);
+
+      const sharedNoteToInstructor = pickFirstFilled([
+        ...nextData.relatedMembers.map((relatedMember) => relatedMember.noteToInstructor),
+        nextData.member.noteToInstructor,
+      ]);
+
+      const phoneForm = derivePhoneForm(sharedParentPhone);
+      setParentForm({
+        parentName: sharedParentName,
+        parentPhonePrefix: phoneForm.parentPhonePrefix,
+        parentPhoneCustomPrefix: phoneForm.parentPhoneCustomPrefix,
+        parentPhoneSuffix: phoneForm.parentPhoneSuffix,
+        noteToInstructor: sharedNoteToInstructor,
+      });
     } catch (_error) {
       setLoadingError('서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.');
     } finally {
@@ -229,6 +326,19 @@ export default function MemberEditPage() {
   useEffect(() => {
     fetchMemberData();
   }, [fetchMemberData]);
+
+  const onChangeStudent = useCallback((groupMemberId: string, next: Partial<StudentEditForm>) => {
+    setStudents((prev) =>
+      prev.map((student) =>
+        student.groupMemberId === groupMemberId
+          ? {
+              ...student,
+              ...next,
+            }
+          : student
+      )
+    );
+  }, []);
 
   const onRemoveMember = useCallback(
     async (targetEditToken: string, targetChildName: string) => {
@@ -267,7 +377,6 @@ export default function MemberEditPage() {
         }
 
         const result = payload as MemberRemoveResponse;
-
         if (targetEditToken === editToken) {
           if (result.nextEditToken) {
             router.replace(`/member/edit/${result.nextEditToken}`);
@@ -290,35 +399,41 @@ export default function MemberEditPage() {
 
   const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!form || !canSubmit) return;
+    if (!canSubmit) return;
 
     setSubmitting(true);
     setSubmitError(null);
     setSubmitSuccess(null);
+    setRemoveError(null);
+    setRemoveSuccess(null);
 
     try {
-      const response = await fetch('/api/member/update', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          editToken,
-          childName: form.childName.trim(),
-          childGrade: form.childGrade,
-          priorStudentAttended: answerToBoolean(form.priorStudentAttended),
-          siblingsPriorAttended: answerToBoolean(form.siblingsPriorAttended),
-          parentPriorAttended: answerToBoolean(form.parentPriorAttended),
-          parentName: form.parentName,
-          parentPhone: form.parentPhone.trim(),
-          noteToInstructor: form.noteToInstructor,
-        }),
-      });
+      for (let index = 0; index < students.length; index += 1) {
+        const student = students[index];
 
-      const payload: unknown = await response.json().catch(() => null);
-      if (!response.ok) {
-        setSubmitError(parseApiError(response.status, payload));
-        return;
+        const response = await fetch('/api/member/update', {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            editToken: student.editToken,
+            childName: student.childName.trim(),
+            childGrade: student.childGrade,
+            priorStudentAttended: answerToBoolean(student.priorStudentAttended),
+            siblingsPriorAttended: answerToBoolean(student.siblingsPriorAttended),
+            parentPriorAttended: answerToBoolean(student.parentPriorAttended),
+            parentName: parentForm.parentName.trim(),
+            parentPhone,
+            noteToInstructor: parentForm.noteToInstructor.trim(),
+          }),
+        });
+
+        const payload: unknown = await response.json().catch(() => null);
+        if (!response.ok) {
+          setSubmitError(`학생 ${index + 1}: ${parseApiError(response.status, payload)}`);
+          return;
+        }
       }
 
       setSubmitSuccess('수정이 완료되었습니다.');
@@ -344,169 +459,193 @@ export default function MemberEditPage() {
       {loading ? <p className={styles.infoText}>불러오는 중...</p> : null}
       {loadingError ? <p className={styles.errorText}>{loadingError}</p> : null}
 
-      {data && form ? (
+      {data && students.length > 0 ? (
         <section className={styles.layout}>
-          <section className={styles.relatedMemberPanel}>
-            <p className={styles.relatedMemberTitle}>등록된 학생 목록</p>
-            <ul className={styles.relatedMemberList}>
-              {(data.relatedMembers ?? []).map((relatedMember, index) => (
-                <li key={relatedMember.groupMemberId} className={styles.relatedMemberCard}>
-                  <p className={styles.relatedMemberName}>
-                    {index + 1}. {relatedMember.childName}
-                    {relatedMember.childGrade ? ` (${relatedMember.childGrade})` : ''}
-                  </p>
-                  <div className={styles.relatedMemberActions}>
-                    {relatedMember.isCurrent ? (
-                      <span className={styles.relatedMemberCurrent}>현재 수정 중</span>
-                    ) : (
-                      <Link href={`/member/edit/${relatedMember.editToken}`} className={styles.relatedMemberMoveButton}>
-                        이 학생 수정 페이지
-                      </Link>
-                    )}
-                    <button
-                      type="button"
-                      className={styles.relatedMemberDeleteButton}
-                      disabled={data.isLocked || submitting || Boolean(removingToken)}
-                      onClick={() => onRemoveMember(relatedMember.editToken, relatedMember.childName)}
-                    >
-                      {removingToken === relatedMember.editToken ? '삭제 중...' : '학생 삭제'}
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-            {removeError ? <p className={styles.errorText}>{removeError}</p> : null}
-            {removeSuccess ? <p className={styles.successText}>{removeSuccess}</p> : null}
-          </section>
-
           <form onSubmit={onSubmit} className={styles.formPanel}>
-            <section className={styles.block}>
-              <h2 className={styles.blockTitle}>학생 정보</h2>
+            {students.map((student, index) => (
+              <section key={student.groupMemberId} className={styles.block}>
+                <div className={styles.blockHeader}>
+                  <h2 className={styles.blockTitle}>학생 정보 {index + 1}</h2>
+                  <button
+                    type="button"
+                    className={styles.studentDeleteButton}
+                    disabled={data.isLocked || submitting || Boolean(removingToken)}
+                    onClick={() => onRemoveMember(student.editToken, student.childName)}
+                  >
+                    {removingToken === student.editToken ? '삭제 중...' : '학생 삭제'}
+                  </button>
+                </div>
 
-              <label className={styles.field}>
-                <span>자녀 이름</span>
-                <input
-                  required
-                  disabled={data.isLocked}
-                  value={form.childName}
-                  onChange={(event) => setForm((prev) => (prev ? { ...prev, childName: event.target.value } : prev))}
+                <label className={styles.field}>
+                  <span>자녀 이름</span>
+                  <input
+                    required
+                    disabled={data.isLocked || Boolean(removingToken)}
+                    value={student.childName}
+                    onChange={(event) => onChangeStudent(student.groupMemberId, { childName: event.target.value })}
+                  />
+                </label>
+
+                <label className={styles.field}>
+                  <span>학년</span>
+                  <select
+                    value={student.childGrade}
+                    disabled={data.isLocked || Boolean(removingToken)}
+                    onChange={(event) => onChangeStudent(student.groupMemberId, { childGrade: event.target.value })}
+                  >
+                    <option value="">선택해 주세요</option>
+                    {GRADE_OPTIONS.map((grade) => (
+                      <option key={grade} value={grade}>
+                        {grade}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <YesNoField
+                  legend="학생이 학교 성교육 외 별도의 성교육 경험(와이미 포함)이 있나요?"
+                  name={`${student.groupMemberId}-priorStudentAttended`}
+                  value={student.priorStudentAttended}
+                  disabled={data.isLocked || Boolean(removingToken)}
+                  onChange={(value) => onChangeStudent(student.groupMemberId, { priorStudentAttended: value })}
                 />
-              </label>
 
-              <label className={styles.field}>
-                <span>학년</span>
-                <select
-                  disabled={data.isLocked}
-                  value={form.childGrade}
-                  onChange={(event) => setForm((prev) => (prev ? { ...prev, childGrade: event.target.value } : prev))}
-                >
-                  <option value="">선택해 주세요 (선택)</option>
-                  {GRADE_OPTIONS.map((grade) => (
-                    <option key={grade} value={grade}>
-                      {grade}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                <YesNoField
+                  legend="학생의 형제/자매가 와이미 성교육 경험이 있나요?"
+                  name={`${student.groupMemberId}-siblingsPriorAttended`}
+                  value={student.siblingsPriorAttended}
+                  disabled={data.isLocked || Boolean(removingToken)}
+                  onChange={(value) => onChangeStudent(student.groupMemberId, { siblingsPriorAttended: value })}
+                />
 
-              <YesNoField
-                legend="학생이 학교 성교육 외 별도의 성교육 경험(와이미 포함)이 있나요?"
-                name="priorStudentAttended"
-                value={form.priorStudentAttended}
-                disabled={data.isLocked}
-                onChange={(value) =>
-                  setForm((prev) => (prev ? { ...prev, priorStudentAttended: value } : prev))
-                }
-              />
-
-              <YesNoField
-                legend="학생의 형제/자매가 와이미 성교육 경험이 있나요?"
-                name="siblingsPriorAttended"
-                value={form.siblingsPriorAttended}
-                disabled={data.isLocked}
-                onChange={(value) =>
-                  setForm((prev) => (prev ? { ...prev, siblingsPriorAttended: value } : prev))
-                }
-              />
-
-              <YesNoField
-                legend="학생의 부모님이 학교 성교육 외 별도의 성교육 경험(와이미 포함)이 있나요?"
-                name="parentPriorAttended"
-                value={form.parentPriorAttended}
-                disabled={data.isLocked}
-                onChange={(value) =>
-                  setForm((prev) => (prev ? { ...prev, parentPriorAttended: value } : prev))
-                }
-              />
-            </section>
+                <YesNoField
+                  legend="학생의 부모님이 학교 성교육 외 별도의 성교육 경험(와이미 포함)이 있나요?"
+                  name={`${student.groupMemberId}-parentPriorAttended`}
+                  value={student.parentPriorAttended}
+                  disabled={data.isLocked || Boolean(removingToken)}
+                  onChange={(value) => onChangeStudent(student.groupMemberId, { parentPriorAttended: value })}
+                />
+              </section>
+            ))}
 
             <section className={styles.block}>
               <h2 className={styles.blockTitle}>학부모 정보</h2>
 
               <label className={styles.field}>
-                <span>학부모 이름 (선택)</span>
+                <span>학부모 이름</span>
                 <input
-                  disabled={data.isLocked}
-                  value={form.parentName}
-                  onChange={(event) => setForm((prev) => (prev ? { ...prev, parentName: event.target.value } : prev))}
+                  required
+                  disabled={data.isLocked || Boolean(removingToken)}
+                  value={parentForm.parentName}
+                  onChange={(event) => setParentForm((prev) => ({ ...prev, parentName: event.target.value }))}
                 />
               </label>
 
               <label className={styles.field}>
-                <span>학부모 연락처 (선택)</span>
-                <input
-                  inputMode="numeric"
-                  disabled={data.isLocked}
-                  value={form.parentPhone}
-                  onChange={(event) =>
-                    setForm((prev) =>
-                      prev
-                        ? {
-                            ...prev,
-                            parentPhone: formatPhone(event.target.value),
-                          }
-                        : prev
-                    )
+                <span>학부모 연락처 (필수)</span>
+                <div
+                  className={
+                    parentForm.parentPhonePrefix === DIRECT_PHONE_PREFIX
+                      ? `${styles.phoneRow} ${styles.phoneRowCustom}`
+                      : styles.phoneRow
                   }
-                  placeholder="010-1234-5678"
-                />
+                >
+                  <select
+                    value={parentForm.parentPhonePrefix}
+                    disabled={data.isLocked || Boolean(removingToken)}
+                    onChange={(event) =>
+                      setParentForm((prev) => ({
+                        ...prev,
+                        parentPhonePrefix: event.target.value,
+                      }))
+                    }
+                  >
+                    {PHONE_PREFIX_OPTIONS.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                    <option value={DIRECT_PHONE_PREFIX}>직접입력</option>
+                  </select>
+                  {parentForm.parentPhonePrefix === DIRECT_PHONE_PREFIX ? (
+                    <input
+                      required
+                      inputMode="numeric"
+                      maxLength={3}
+                      disabled={data.isLocked || Boolean(removingToken)}
+                      value={parentForm.parentPhoneCustomPrefix}
+                      onChange={(event) =>
+                        setParentForm((prev) => ({
+                          ...prev,
+                          parentPhoneCustomPrefix: normalizePhonePrefix(event.target.value),
+                        }))
+                      }
+                      placeholder="앞 3자리"
+                    />
+                  ) : null}
+                  <input
+                    required
+                    inputMode="numeric"
+                    maxLength={8}
+                    disabled={data.isLocked || Boolean(removingToken)}
+                    value={parentForm.parentPhoneSuffix}
+                    onChange={(event) =>
+                      setParentForm((prev) => ({
+                        ...prev,
+                        parentPhoneSuffix: normalizePhoneSuffix(event.target.value),
+                      }))
+                    }
+                    placeholder="뒤 8자리"
+                  />
+                </div>
               </label>
 
               <label className={styles.field}>
-                <span>강사님께 전달할 사항 (선택)</span>
+                <span>강사님께 전달할 사항 (필수)</span>
+                <div className={styles.noteGuide}>
+                  <p className={styles.noteGuideTitle}>
+                    교육 시 강사가 알아두어야 할 학생의 특이사항
+                    <br />
+                    ex)
+                  </p>
+                  <ul>
+                    <li>ADHD 약을 복용하고 있어요. 다소 산만한 모습을 보일 수도 있으니 양해 부탁드려요.</li>
+                    <li>이전 다른 교육에서 들었던 내용으로 인해, 성교육에 대한 거부감이 매우 커요.</li>
+                    <li>어려서 아버지를 여읜 터라, 해당 부분만 언급 조심 부탁드려요.</li>
+                    <li>학교에서 심한 장난과 성적인 욕설로 몇 번 문제를 겪었어요.</li>
+                    <li>참석 아이들 모두 포경수술을 했어요.</li>
+                  </ul>
+                  <p className={`${styles.noteGuideTitle} ${styles.noteGuideTitleSpaced}`}>
+                    교육 시 집중 전달 또는 언급 자제 요청사항
+                    <br />
+                    ex)
+                  </p>
+                  <ul>
+                    <li>세 명 모두 미디어 노출이 없어서 또래보다 어려요. 잘 맞춰서 교육 부탁드려요.</li>
+                    <li>아이가 이성에 관심이 많습니다. SNS나 유튜브 등 미디어 이용 시 주의점 잘 알려주시면 좋겠어요.</li>
+                    <li>좋아하는 사람에 대한 지켜야할 선과 책임감에 대해 콕 짚어주시기 바라요.</li>
+                    <li>동성애를 무조건 존중해야 한다거나 성별을 선택할 수 있다는 내용 등은 원하지 않아요.</li>
+                  </ul>
+                </div>
                 <textarea
+                  required
                   rows={4}
-                  disabled={data.isLocked}
-                  value={form.noteToInstructor}
-                  onChange={(event) =>
-                    setForm((prev) => (prev ? { ...prev, noteToInstructor: event.target.value } : prev))
-                  }
+                  disabled={data.isLocked || Boolean(removingToken)}
+                  value={parentForm.noteToInstructor}
+                  onChange={(event) => setParentForm((prev) => ({ ...prev, noteToInstructor: event.target.value }))}
                 />
               </label>
             </section>
 
+            {removeError ? <p className={styles.errorText}>{removeError}</p> : null}
+            {removeSuccess ? <p className={styles.successText}>{removeSuccess}</p> : null}
             {submitError ? <p className={styles.errorText}>{submitError}</p> : null}
             {submitSuccess ? <p className={styles.successText}>{submitSuccess}</p> : null}
 
             <button type="submit" disabled={!canSubmit} className={styles.submitButton}>
-              {submitting ? '수정 중...' : data.isLocked ? '잠금 상태로 수정 불가' : '수정 저장'}
+              {submitting ? '수정 중...' : '수정 저장'}
             </button>
           </form>
-
-          <aside className={styles.resultPanel}>
-            <h2 className={`font-display ${styles.resultTitle}`}>상태 안내</h2>
-            <div className={styles.resultBox}>
-              <p className={styles.resultLabel}>로스터 상태</p>
-              <p className={styles.resultValue}>{data.rosterStatus}</p>
-              <p className={styles.resultLabel}>마지막 수정 시각</p>
-              <p className={styles.resultValue}>{new Date(data.member.updatedAt).toLocaleString('ko-KR')}</p>
-              {data.isLocked ? (
-                <p className={styles.lockedMessage}>현재 교육 준비가 완료되어 더 이상 수정할 수 없습니다.</p>
-              ) : (
-                <p className={styles.helperMessage}>수정 후 저장 버튼을 눌러 반영해 주세요.</p>
-              )}
-            </div>
-          </aside>
         </section>
       ) : null}
     </main>

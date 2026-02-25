@@ -10,7 +10,7 @@
   position: relative;
   border: 1px solid var(--color-line);
   border-radius: 28px;
-  background: linear-gradient(162deg, rgba(255, 255, 255, 0.97), rgba(255, 249, 240, 0.96));
+  background: linear-gradient(162deg, rgba(255, 255, 255, 0.97), rgba(255, 250, 244, 0.96));
   box-shadow: var(--shadow-soft);
   padding: clamp(28px, 4vw, 56px);
   overflow: hidden;
@@ -19,8 +19,8 @@
 .badge {
   display: inline-flex;
   border-radius: 999px;
-  border: 1px solid rgba(240, 147, 0, 0.38);
-  background: rgba(246, 228, 91, 0.22);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.38);
+  background: rgba(var(--color-secondary-rgb), 0.22);
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -40,14 +40,14 @@
   margin: 0;
   line-height: 1.7;
   font-size: 17px;
-  color: rgba(58, 42, 32, 0.82);
+  color: rgba(var(--color-ink-rgb), 0.82);
 }
 
 .ctaRow {
   margin-top: 28px;
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 12px;
 }
 
 .primaryCta {
@@ -62,13 +62,13 @@
   font-weight: 700;
   background: linear-gradient(135deg, var(--color-brand-rust), var(--color-brand-orange));
   color: #fff;
-  box-shadow: 0 8px 22px rgba(240, 147, 0, 0.35);
-  transition: transform 160ms ease, box-shadow 160ms ease;
+  box-shadow: 0 8px 22px rgba(var(--color-primary-rgb), 0.35);
+  transition: transform var(--motion-fast) ease, box-shadow var(--motion-fast) ease;
 }
 
 .primaryCta:hover {
   transform: translateY(-1px);
-  box-shadow: 0 12px 28px rgba(240, 147, 0, 0.42);
+  box-shadow: 0 12px 28px rgba(var(--color-primary-rgb), 0.42);
 }
 
 .secondaryCta {
@@ -76,25 +76,25 @@
   align-items: center;
   justify-content: center;
   border-radius: 14px;
-  border: 1px solid rgba(240, 147, 0, 0.4);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.4);
   min-height: 52px;
   padding: 0 22px;
   font-size: 16px;
   font-weight: 700;
-  background: rgba(255, 255, 255, 0.9);
-  color: #8d4218;
-  transition: transform 160ms ease, border-color 160ms ease, background-color 160ms ease;
+  background: rgba(255, 255, 255, 0.96);
+  color: var(--color-primary-strong);
+  transition: transform var(--motion-fast) ease, border-color var(--motion-fast) ease, background-color var(--motion-fast) ease;
 }
 
 .secondaryCta:hover {
   transform: translateY(-1px);
-  border-color: rgba(240, 147, 0, 0.65);
-  background: rgba(255, 252, 246, 0.96);
+  border-color: rgba(var(--color-primary-rgb), 0.65);
+  background: rgba(255, 248, 240, 0.96);
 }
 
 .note {
   margin: 18px 0 0;
-  color: rgba(58, 42, 32, 0.66);
+  color: rgba(var(--color-ink-rgb), 0.66);
   font-size: 14px;
 }
 
@@ -103,8 +103,7 @@
   position: absolute;
   pointer-events: none;
   border-radius: 999px;
-  filter: blur(0.6px);
-  animation: floatY 5.2s ease-in-out infinite;
+  filter: blur(0.8px);
 }
 
 .glowA {
@@ -112,7 +111,7 @@
   height: 280px;
   right: -50px;
   top: -54px;
-  background: radial-gradient(circle at 32% 28%, rgba(242, 165, 109, 0.85), rgba(242, 165, 109, 0.05) 74%);
+  background: radial-gradient(circle at 32% 28%, rgba(var(--color-primary-rgb), 0.28), rgba(var(--color-primary-rgb), 0.02) 74%);
 }
 
 .glowB {
@@ -120,22 +119,7 @@
   height: 230px;
   right: 94px;
   bottom: -96px;
-  background: radial-gradient(circle at 40% 44%, rgba(239, 127, 98, 0.5), rgba(239, 127, 98, 0.04) 78%);
-  animation-duration: 6.2s;
-}
-
-@keyframes floatY {
-  0% {
-    transform: translateY(0);
-  }
-
-  50% {
-    transform: translateY(-8px);
-  }
-
-  100% {
-    transform: translateY(0);
-  }
+  background: radial-gradient(circle at 40% 44%, rgba(var(--color-accent-rgb), 0.5), rgba(var(--color-accent-rgb), 0.04) 78%);
 }
 
 @media (max-width: 760px) {
@@ -146,5 +130,16 @@
   .subtitle {
     font-size: 15px;
     line-height: 1.62;
+  }
+
+  .ctaRow {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .primaryCta,
+  .secondaryCta {
+    width: 100%;
+    min-height: 54px;
   }
 }

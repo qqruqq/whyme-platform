@@ -2,13 +2,13 @@
   min-height: 100dvh;
   padding: clamp(16px, 2.8vw, 30px);
   display: grid;
-  gap: 16px;
+  gap: 24px;
 }
 
 .hero {
   border-radius: 22px;
-  border: 1px solid rgba(241, 217, 196, 0.8);
-  background: linear-gradient(150deg, rgba(255, 255, 255, 0.95), rgba(255, 247, 236, 0.9));
+  border: 1px solid rgba(var(--color-line-rgb), 0.8);
+  background: linear-gradient(150deg, rgba(255, 255, 255, 0.95), rgba(255, 249, 242, 0.94));
   box-shadow: var(--shadow-soft);
   padding: clamp(20px, 3vw, 30px);
 }
@@ -17,8 +17,8 @@
   margin: 0;
   display: inline-flex;
   border-radius: 999px;
-  border: 1px solid rgba(240, 147, 0, 0.32);
-  background: rgba(246, 228, 91, 0.2);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.32);
+  background: rgba(var(--color-secondary-rgb), 0.2);
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -35,13 +35,13 @@
 .description {
   margin: 0;
   line-height: 1.68;
-  color: rgba(58, 42, 32, 0.82);
+  color: rgba(var(--color-ink-rgb), 0.82);
 }
 
 .backLink {
   display: inline-flex;
   margin-top: 12px;
-  border-bottom: 1px solid rgba(58, 42, 32, 0.34);
+  border-bottom: 1px solid rgba(var(--color-ink-rgb), 0.34);
   font-size: 14px;
   font-weight: 600;
 }
@@ -49,24 +49,24 @@
 .layout {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 16px;
+  gap: 24px;
 }
 
 .formPanel {
   border-radius: 22px;
-  border: 1px solid rgba(241, 217, 196, 0.82);
+  border: 1px solid rgba(var(--color-line-rgb), 0.82);
   background: rgba(255, 255, 255, 0.94);
   box-shadow: var(--shadow-card);
   padding: clamp(16px, 3vw, 24px);
   display: grid;
-  gap: 14px;
+  gap: 18px;
 }
 
 .relatedMemberPanel {
   grid-column: 1 / -1;
   border-radius: 14px;
-  border: 1px solid rgba(240, 147, 0, 0.36);
-  background: rgba(255, 249, 239, 0.96);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.36);
+  background: rgba(255, 247, 238, 0.96);
   padding: 12px;
   display: grid;
   gap: 8px;
@@ -76,7 +76,7 @@
   margin: 0;
   font-size: 13px;
   font-weight: 700;
-  color: rgba(58, 42, 32, 0.82);
+  color: rgba(var(--color-ink-rgb), 0.82);
 }
 
 .relatedMemberList {
@@ -88,7 +88,7 @@
 }
 
 .relatedMemberCard {
-  border: 1px solid rgba(233, 206, 184, 0.95);
+  border: 1px solid rgba(var(--color-line-rgb), 0.95);
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.92);
   padding: 10px;
@@ -100,7 +100,7 @@
   margin: 0;
   font-size: 14px;
   font-weight: 700;
-  color: rgba(58, 42, 32, 0.82);
+  color: rgba(var(--color-ink-rgb), 0.82);
 }
 
 .relatedMemberActions {
@@ -117,9 +117,9 @@
   border-radius: 999px;
   font-size: 12px;
   font-weight: 700;
-  color: #8b3f13;
-  background: rgba(240, 147, 0, 0.18);
-  border: 1px solid rgba(240, 147, 0, 0.4);
+  color: var(--color-primary-strong);
+  background: rgba(var(--color-primary-rgb), 0.18);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.4);
 }
 
 .relatedMemberMoveButton,
@@ -136,15 +136,15 @@
 }
 
 .relatedMemberMoveButton {
-  color: #8b3f13;
-  border: 1px solid rgba(240, 147, 0, 0.44);
-  background: rgba(240, 147, 0, 0.1);
+  color: var(--color-primary-strong);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.44);
+  background: rgba(var(--color-primary-rgb), 0.1);
 }
 
 .relatedMemberDeleteButton {
-  border: 1px solid rgba(185, 63, 41, 0.45);
-  background: rgba(185, 63, 41, 0.08);
-  color: #9b2f1c;
+  border: 1px solid rgba(var(--color-danger-rgb), 0.45);
+  background: rgba(var(--color-danger-rgb), 0.08);
+  color: var(--color-danger);
   cursor: pointer;
 }
 
@@ -155,8 +155,8 @@
 
 .block {
   border-radius: 16px;
-  border: 1px solid rgba(241, 217, 196, 0.76);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(255, 250, 243, 0.96));
+  border: 1px solid rgba(var(--color-line-rgb), 0.76);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(255, 251, 246, 0.98));
   padding: clamp(14px, 2.8vw, 18px);
   display: grid;
   gap: 10px;
@@ -168,6 +168,30 @@
   font-weight: 800;
 }
 
+.blockHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.studentDeleteButton {
+  min-height: 32px;
+  border-radius: 9px;
+  border: 1px solid rgba(var(--color-danger-rgb), 0.45);
+  background: rgba(var(--color-danger-rgb), 0.08);
+  color: var(--color-danger);
+  font-size: 13px;
+  font-weight: 700;
+  padding: 0 10px;
+  cursor: pointer;
+}
+
+.studentDeleteButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .field {
   display: grid;
   gap: 6px;
@@ -176,7 +200,7 @@
 .field span {
   font-size: 13px;
   font-weight: 700;
-  color: rgba(58, 42, 32, 0.84);
+  color: rgba(var(--color-ink-rgb), 0.84);
 }
 
 .field input,
@@ -185,13 +209,13 @@
   width: 100%;
   min-height: 46px;
   border-radius: 12px;
-  border: 1px solid #e8cdb8;
+  border: 1px solid var(--color-line);
   padding: 0 12px;
   font: inherit;
   font-size: 15px;
   color: var(--color-ink);
   background: #fff;
-  transition: border-color 140ms ease, box-shadow 140ms ease;
+  transition: border-color var(--motion-fast) ease, box-shadow var(--motion-fast) ease;
 }
 
 .field textarea {
@@ -200,18 +224,28 @@
   resize: vertical;
 }
 
+.phoneRow {
+  display: grid;
+  grid-template-columns: 112px 1fr;
+  gap: 8px;
+}
+
+.phoneRowCustom {
+  grid-template-columns: 112px 102px 1fr;
+}
+
 .field input:focus,
 .field select:focus,
 .field textarea:focus {
   outline: none;
   border-color: var(--color-brand-orange);
-  box-shadow: 0 0 0 3px rgba(240, 147, 0, 0.18);
+  box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.18);
 }
 
 .questionCard {
   border-radius: 13px;
-  border: 1px solid rgba(233, 206, 184, 0.95);
-  background: rgba(255, 250, 242, 0.75);
+  border: 1px solid rgba(var(--color-line-rgb), 0.95);
+  background: rgba(255, 250, 244, 0.9);
   padding: 11px;
   margin: 0;
   display: grid;
@@ -238,7 +272,7 @@
   justify-content: center;
   border-radius: 11px;
   min-height: 38px;
-  border: 1px solid rgba(233, 206, 184, 0.95);
+  border: 1px solid rgba(var(--color-line-rgb), 0.95);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
@@ -249,8 +283,8 @@
 }
 
 .choiceActive {
-  background: rgba(240, 147, 0, 0.16);
-  border-color: rgba(240, 147, 0, 0.46);
+  background: rgba(var(--color-primary-rgb), 0.16);
+  border-color: rgba(var(--color-primary-rgb), 0.46);
 }
 
 .choice input,
@@ -258,9 +292,41 @@
   display: none;
 }
 
+.noteGuide {
+  border: 1px solid rgba(var(--color-line-rgb), 0.95);
+  border-radius: 12px;
+  background: rgba(255, 250, 244, 0.9);
+  padding: 10px 12px;
+}
+
+.noteGuideTitle {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(var(--color-ink-rgb), 0.8);
+}
+
+.noteGuideTitleSpaced {
+  margin-top: 12px;
+}
+
+.noteGuide ul {
+  margin: 6px 0 10px;
+  padding-left: 16px;
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: rgba(var(--color-ink-rgb), 0.75);
+}
+
+.noteGuide ul:last-child {
+  margin-bottom: 0;
+}
+
 .errorText {
   margin: 0;
-  color: #b93f29;
+  color: var(--color-danger);
   font-size: 13px;
   font-weight: 600;
 }
@@ -268,12 +334,12 @@
 .infoText {
   margin: 0;
   font-size: 14px;
-  color: rgba(58, 42, 32, 0.75);
+  color: rgba(var(--color-ink-rgb), 0.75);
 }
 
 .successText {
   margin: 0;
-  color: #216f36;
+  color: var(--color-accent);
   font-size: 13px;
   font-weight: 600;
 }
@@ -286,7 +352,7 @@
   font-weight: 700;
   color: #fff;
   background: linear-gradient(136deg, var(--color-brand-rust), var(--color-brand-orange));
-  box-shadow: 0 10px 22px rgba(240, 147, 0, 0.26);
+  box-shadow: 0 10px 22px rgba(var(--color-primary-rgb), 0.26);
   cursor: pointer;
 }
 
@@ -297,7 +363,7 @@
 
 .resultPanel {
   border-radius: 22px;
-  border: 1px solid rgba(241, 217, 196, 0.82);
+  border: 1px solid rgba(var(--color-line-rgb), 0.82);
   background: linear-gradient(165deg, rgba(255, 255, 255, 0.95), rgba(255, 247, 236, 0.94));
   box-shadow: var(--shadow-card);
   padding: clamp(16px, 3vw, 24px);
@@ -311,7 +377,7 @@
 
 .placeholder {
   border-radius: 12px;
-  border: 1px dashed rgba(229, 204, 181, 0.95);
+  border: 1px dashed rgba(var(--color-line-rgb), 0.95);
   background: rgba(255, 255, 255, 0.75);
   padding: 12px;
 }
@@ -320,7 +386,7 @@
   margin: 0;
   font-size: 14px;
   line-height: 1.58;
-  color: rgba(58, 42, 32, 0.72);
+  color: rgba(var(--color-ink-rgb), 0.72);
 }
 
 .placeholder p + p {
@@ -329,7 +395,7 @@
 
 .resultBox {
   border-radius: 12px;
-  border: 1px solid rgba(229, 204, 181, 0.96);
+  border: 1px solid rgba(var(--color-line-rgb), 0.96);
   background: #fff;
   padding: 12px;
 }
@@ -346,19 +412,19 @@
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgba(58, 42, 32, 0.55);
+  color: rgba(var(--color-ink-rgb), 0.55);
 }
 
 .resultValue {
   margin: 0;
   font-size: 14px;
   line-height: 1.58;
-  color: rgba(58, 42, 32, 0.84);
+  color: rgba(var(--color-ink-rgb), 0.84);
 }
 
 .lockedMessage {
   margin: 12px 0 0;
-  color: #bd3f26;
+  color: var(--color-danger);
   font-size: 13px;
   line-height: 1.5;
   font-weight: 600;
@@ -366,7 +432,7 @@
 
 .helperMessage {
   margin: 12px 0 0;
-  color: rgba(58, 42, 32, 0.72);
+  color: rgba(var(--color-ink-rgb), 0.72);
   font-size: 13px;
   line-height: 1.5;
 }
@@ -374,7 +440,7 @@
 .resultLink {
   display: block;
   font-size: 13px;
-  color: #8e4116;
+  color: var(--color-primary-strong);
   word-break: break-all;
 }
 
@@ -383,11 +449,11 @@
   width: 100%;
   min-height: 38px;
   border-radius: 10px;
-  border: 1px solid rgba(240, 147, 0, 0.44);
-  background: rgba(240, 147, 0, 0.1);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.44);
+  background: rgba(var(--color-primary-rgb), 0.1);
   font-size: 14px;
   font-weight: 600;
-  color: #8b3f13;
+  color: var(--color-primary-strong);
   cursor: pointer;
 }
 
@@ -398,27 +464,20 @@
 }
 
 .copyState {
-  color: #216f36;
+  color: var(--color-accent);
 }
 
 .copyError {
-  color: #bd3f26;
-}
-
-@media (min-width: 1080px) {
-  .layout {
-    grid-template-columns: minmax(0, 1fr) 360px;
-    align-items: start;
-  }
-
-  .resultPanel {
-    position: sticky;
-    top: 16px;
-  }
+  color: var(--color-danger);
 }
 
 @media (max-width: 640px) {
   .choiceRow {
+    grid-template-columns: 1fr;
+  }
+
+  .phoneRow,
+  .phoneRowCustom {
     grid-template-columns: 1fr;
   }
 }

@@ -230,7 +230,6 @@ export default function InviteEntryPage() {
   const [form, setForm] = useState<InviteForm>(INITIAL_FORM);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const parentPhonePrefix = resolvePhonePrefix(form.parentPhonePrefix, form.parentPhoneCustomPrefix);
   const parentPhoneSuffix = normalizePhoneSuffix(form.parentPhoneSuffix);
@@ -258,7 +257,6 @@ export default function InviteEntryPage() {
 
     setSubmitting(true);
     setError(null);
-    setSuccessMessage(null);
 
     const students = [
       {
@@ -302,7 +300,7 @@ export default function InviteEntryPage() {
         return;
       }
 
-      setSuccessMessage('입력이 완료되었습니다. 수정이 필요하면 홈의 예약 내역 조회/수정을 이용해 주세요.');
+      setForm(INITIAL_FORM);
     } catch (_err) {
       setError('서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.');
     } finally {
@@ -463,7 +461,6 @@ export default function InviteEntryPage() {
           </section>
 
           {error ? <p className={styles.errorText}>{error}</p> : null}
-          {successMessage ? <p className={styles.infoText}>{successMessage}</p> : null}
 
           <button type="submit" disabled={!canSubmit || submitting} className={styles.submitButton}>
             {submitting ? '입력 중...' : '정보 입력 완료'}

@@ -214,7 +214,7 @@ export default function ManagePage() {
     if (typeof navigator.share === 'function') {
       try {
         await navigator.share({
-          title: '와이미 소그룹 교육 정보 입력',
+          title: '와이미 소그룹 성교육 (남학생) 정보 입력',
           text: '팀 공용 정보 입력 링크를 공유합니다.',
           url: sharedInviteUrl,
         });
@@ -354,8 +354,6 @@ export default function ManagePage() {
                 {shareState === 'shared' ? <p className={styles.copyState}>공유 창을 열었습니다.</p> : null}
                 {shareState === 'failed' ? <p className={styles.copyError}>공유에 실패했습니다.</p> : null}
               </div>
-
-              {isLocked ? <p className={styles.infoText}>명단이 잠겨 있어 링크를 새로 만들 수 없습니다.</p> : null}
             </article>
 
             <article className={styles.panel}>
@@ -375,7 +373,6 @@ export default function ManagePage() {
                           {member.childName}
                           {member.childGrade ? ` (${member.childGrade})` : ''}
                         </p>
-                        <span className={styles.memberStatus}>{member.status}</span>
                       </div>
                       <p className={styles.memberMeta}>
                         보호자: {member.parentName || '-'} / {member.parentPhone || '-'}

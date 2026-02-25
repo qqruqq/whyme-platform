@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useMemo, useState } from 'react'
+import InlineCalendar from '@/components/InlineCalendar'
 import styles from './page.module.css'
 
 type YesNo = 'yes' | 'no' | ''
@@ -379,15 +380,13 @@ export default function BookingPage() {
           <section className={styles.block}>
             <h2 className={styles.blockTitle}>교육 정보</h2>
             <div className={styles.gridTwo}>
-              <label className={styles.field}>
+              <div className={styles.field}>
                 <span>교육 일정 (날짜)</span>
-                <input
-                  required
-                  type="date"
+                <InlineCalendar
                   value={form.classDate}
-                  onChange={(event) => setForm((prev) => ({ ...prev, classDate: event.target.value }))}
+                  onChange={(nextDate) => setForm((prev) => ({ ...prev, classDate: nextDate }))}
                 />
-              </label>
+              </div>
               <label className={styles.field}>
                 <span>교육 일정 (시간)</span>
                 <div className={styles.timePicker}>
