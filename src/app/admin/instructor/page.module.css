@@ -53,6 +53,7 @@
 }
 
 .panel {
+  position: relative;
   border-radius: 20px;
   border: 1px solid rgba(var(--color-line-rgb), 0.84);
   background: rgba(255, 255, 255, 0.96);
@@ -180,6 +181,58 @@
 .scheduleMeta {
   font-size: 13px;
   color: rgba(var(--color-ink-rgb), 0.75);
+}
+
+.descriptionBlock {
+  margin: 0;
+  border-radius: 12px;
+  border: 1px solid rgba(var(--color-line-rgb), 0.9);
+  background: rgba(255, 255, 255, 0.96);
+  padding: 10px 12px;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  color: rgba(var(--color-ink-rgb), 0.82);
+}
+
+.floatingDetail {
+  position: fixed;
+  z-index: 120;
+  width: min(380px, calc(100vw - 24px));
+  max-height: min(78vh, 760px);
+  overflow: auto;
+  border-radius: 16px;
+  border: 1px solid rgba(var(--color-line-rgb), 0.92);
+  background: rgba(255, 255, 255, 0.99);
+  box-shadow: 0 18px 40px rgba(var(--color-ink-rgb), 0.16);
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.floatingHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.floatingCloseButton {
+  border: 1px solid rgba(var(--color-line-rgb), 0.9);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.96);
+  color: rgba(var(--color-ink-rgb), 0.76);
+  font-size: 12px;
+  font-weight: 700;
+  min-height: 30px;
+  padding: 0 9px;
+  cursor: pointer;
+}
+
+.floatingCloseButton:hover {
+  border-color: rgba(var(--color-primary-rgb), 0.46);
+  background: rgba(var(--color-secondary-rgb), 0.2);
 }
 
 .allScheduleList {

@@ -17,6 +17,7 @@ export type InlineCalendarDayItem = {
 export type InlineCalendarDayItemSelectPayload = {
   date: string
   itemId: string
+  anchorRect: DOMRectReadOnly
 }
 
 type InlineCalendarProps = {
@@ -157,7 +158,8 @@ export default function InlineCalendar({
                   const nextValue = formatDateKey(day)
                   const badge = dayBadges?.[nextValue]
                   const hasBadge = Boolean(badge?.primary || badge?.secondary)
-                  const items = dayItems?.[nextValue] ?? []
+                  const allItems = dayItems?.[nextValue] ?? []
+                  const items = isCurrentMonth ? allItems : []
                   const hasItems = items.length > 0
 
                   return (
@@ -166,31 +168,30 @@ export default function InlineCalendar({
                         className={[
                           styles.dayCell,
                           hasItems ? styles.dayCellWithItems : '',
+                          isSelected ? styles.dayCellSelected : '',
+                          isToday ? styles.dayCellToday : '',
+                          isWeekend ? styles.dayCellWeekend : '',
                           !isCurrentMonth ? styles.dayCellOutside : '',
                         ]
                           .filter(Boolean)
                           .join(' ')}
                       >
-                        <button
-                          type="button"
-                          className={[
-                            styles.dateButton,
-                            isSelected ? styles.dateButtonSelected : '',
-                            isToday ? styles.dateButtonToday : '',
-                            isWeekend ? styles.dateButtonWeekend : '',
-                            hasBadge ? styles.dateButtonWithBadge : '',
-                          ]
-                            .filter(Boolean)
-                            .join(' ')}
-                          onClick={() => onChange(nextValue)}
-                          aria-selected={isSelected}
-                        >
-                          <span className={styles.dateInner}>
-                            <span className={styles.dateNumber}>{day.getDate()}</span>
-                            {badge?.primary ? <span className={styles.badgePrimary}>{badge.primary}</span> : null}
-                            {badge?.secondary ? <span className={styles.badgeSecondary}>{badge.secondary}</span> : null}
-                          </span>
-                        </button>
+                        <div className={styles.dayHeader}>
+                          <button
+                            type="button"
+                            className={styles.dayNumberButton}
+                            onClick={() => onChange(nextValue)}
+                            aria-selected={isSelected}
+                          >
+                            {day.getDate()}
+                          </button>
+                          {hasBadge ? (
+                            <span className={styles.badgeStack}>
+                              {badge?.primary ? <span className={styles.badgePrimary}>{badge.primary}</span> : null}
+                              {badge?.secondary ? <span className={styles.badgeSecondary}>{badge.secondary}</span> : null}
+                            </span>
+                          ) : null}
+                        </div>
 
                         {hasItems ? (
                           <span className={styles.itemList}>
@@ -199,13 +200,15 @@ export default function InlineCalendar({
                                 <button
                                   key={`${nextValue}-item-${item.id}`}
                                   type="button"
+                                  data-calendar-item="true"
                                   className={
                                     item.selected ? `${styles.itemButton} ${styles.itemButtonSelected}` : styles.itemButton
                                   }
-                                  onClick={() =>
+                                  onClick={(event) =>
                                     onDayItemSelect({
                                       date: nextValue,
                                       itemId: item.id,
+                                      anchorRect: event.currentTarget.getBoundingClientRect(),
                                     })
                                   }
                                 >

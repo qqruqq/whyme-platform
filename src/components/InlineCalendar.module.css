@@ -66,6 +66,14 @@
 
 .dayCell {
   width: 100%;
+  min-height: 114px;
+  border: 1px solid rgba(var(--color-line-rgb), 0.9);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.96);
+  padding: 4px;
+  display: grid;
+  gap: 4px;
+  align-content: start;
 }
 
 .dayCellWithItems {
@@ -73,76 +81,74 @@
   gap: 3px;
 }
 
+.dayCellSelected {
+  border-color: rgba(var(--color-primary-rgb), 0.62);
+  background: rgba(var(--color-primary-rgb), 0.08);
+}
+
+.dayCellToday {
+  box-shadow: inset 0 0 0 2px rgba(var(--color-accent-rgb), 0.3);
+}
+
+.dayCellWeekend .dayNumberButton {
+  color: var(--color-primary-strong);
+}
+
 .dayCellOutside {
   opacity: 0.5;
 }
 
-.dateButton {
-  width: 100%;
-  min-height: 42px;
-  border-radius: 10px;
-  border: 1px solid var(--color-line);
-  background: rgba(255, 255, 255, 0.98);
+.dayHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 6px;
+  min-height: 24px;
+}
+
+.dayNumberButton {
+  min-width: 24px;
+  min-height: 24px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
   color: rgba(var(--color-ink-rgb), 0.88);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+  padding: 0 6px;
   cursor: pointer;
-  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.dateButtonWithBadge {
-  min-height: 56px;
+.dayNumberButton:hover {
+  background: rgba(var(--color-secondary-rgb), 0.3);
 }
 
-.dateButton:hover {
-  border-color: rgba(var(--color-primary-rgb), 0.46);
-  background: rgba(var(--color-secondary-rgb), 0.24);
-}
-
-.dateButton:focus-visible {
+.dayNumberButton:focus-visible {
   outline: none;
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.16);
+  box-shadow: 0 0 0 2px rgba(var(--color-primary-rgb), 0.22);
 }
 
-.dateButtonSelected {
-  border-color: rgba(var(--color-primary-rgb), 0.62);
-  background: rgba(var(--color-primary-rgb), 0.16);
+.dayCellSelected .dayNumberButton {
+  background: rgba(var(--color-primary-rgb), 0.18);
   color: var(--color-primary-strong);
 }
 
-.dateButtonToday {
-  box-shadow: inset 0 0 0 2px rgba(var(--color-accent-rgb), 0.42);
-}
-
-.dateButtonWeekend .dateNumber {
-  color: var(--color-primary-strong);
-}
-
-.dateInner {
-  width: 100%;
+.badgeStack {
   display: grid;
-  justify-items: center;
-  align-content: center;
+  justify-items: end;
   gap: 1px;
-  padding: 4px 2px;
-}
-
-.dateButtonWithBadge .dateInner {
-  align-content: start;
-  gap: 2px;
-  padding-top: 5px;
-}
-
-.dateNumber {
-  font-size: 14px;
-  font-weight: 700;
-  line-height: 1.2;
+  min-width: 42px;
 }
 
 .badgePrimary,
 .badgeSecondary {
   display: block;
-  width: 100%;
-  text-align: center;
+  max-width: 64px;
+  text-align: right;
   font-size: 10px;
   line-height: 1.2;
   white-space: nowrap;
@@ -163,44 +169,24 @@
 .itemList {
   width: 100%;
   display: grid;
-  gap: 1px;
+  gap: 2px;
   margin-top: 0;
-}
-
-.itemRow,
-.itemMore {
-  display: block;
-  width: 100%;
-  text-align: center;
-  font-size: 10px;
-  line-height: 1.2;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.itemRow {
-  color: rgba(var(--color-ink-rgb), 0.72);
-  font-weight: 700;
-  border-radius: 7px;
-  border: 1px solid rgba(var(--color-line-rgb), 0.92);
-  background: rgba(255, 255, 255, 0.95);
-  padding: 2px 3px;
 }
 
 .itemButton {
   width: 100%;
-  border-radius: 7px;
+  border-radius: 6px;
   border: 1px solid rgba(var(--color-line-rgb), 0.92);
-  background: rgba(255, 255, 255, 0.95);
+  background: rgba(252, 250, 247, 0.95);
   color: rgba(var(--color-ink-rgb), 0.74);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
-  line-height: 1.25;
-  padding: 2px 3px;
+  line-height: 1.3;
+  padding: 4px 5px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  text-align: left;
   cursor: pointer;
 }
 
@@ -219,11 +205,6 @@
   border-color: rgba(var(--color-primary-rgb), 0.62);
   background: rgba(var(--color-primary-rgb), 0.14);
   color: var(--color-primary-strong);
-}
-
-.itemMore {
-  color: rgba(var(--color-primary-rgb), 0.88);
-  font-weight: 700;
 }
 
 .srOnly {

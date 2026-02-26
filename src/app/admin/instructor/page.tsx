@@ -105,11 +105,9 @@ type DashboardResponse = {
   selectedSchedule: SelectedSchedule | null;
 };
 
-type DayScheduleRow = {
-  slotId: string;
-  classTimeLabel: string;
-  groupCount: number;
-  instructorName?: string;
+type FloatingPosition = {
+  top: number;
+  left: number;
 };
 
 type ApiErrorPayload = {
@@ -179,6 +177,8 @@ export default function InstructorAdminPage() {
   const [noteMessage, setNoteMessage] = useState<string | null>(null);
   const [noteError, setNoteError] = useState<string | null>(null);
   const latestFetchIdRef = useRef(0);
+  const floatingPanelRef = useRef<HTMLDivElement | null>(null);
+  const [floatingPosition, setFloatingPosition] = useState<FloatingPosition | null>(null);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -357,6 +357,7 @@ export default function InstructorAdminPage() {
     setSelectedDate(fallbackDate);
     setSelectedSlotId('');
     setSelectedGroupId('');
+    setFloatingPosition(null);
   }, [calendarItems, firstAvailableDate, selectedDate]);
 
   const selectedGroup =
@@ -421,28 +422,79 @@ export default function InstructorAdminPage() {
       gradeSummary: gradeSet.size ? Array.from(gradeSet).join(', ') : '-',
     };
   }, [dashboard?.selectedSchedule]);
-
-  const daySchedulesToRender = useMemo(() => {
-    if (!dashboard) return [] as DayScheduleRow[];
-
-    if (dashboard.daySchedules.length) {
-      return dashboard.daySchedules.map<DayScheduleRow>((schedule) => ({
-        slotId: schedule.slotId,
-        classTimeLabel: schedule.classTimeLabel,
-        groupCount: schedule.groupCount,
-      }));
+  const selectedScheduleDetail = useMemo(() => {
+    if (!dashboard?.selectedSchedule) {
+      return null;
     }
 
-    return dashboard.allSchedules.map<DayScheduleRow>((schedule) => ({
-      slotId: schedule.slotId,
-      classTimeLabel: schedule.classTimeLabel,
-      groupCount: schedule.groupCount,
-      instructorName: schedule.instructorName,
-    }));
-  }, [dashboard]);
+    const schedule = dashboard.selectedSchedule;
+    const groups = schedule.groups;
+    const locations = Array.from(new Set(groups.map((group) => group.location).filter(Boolean)));
+    const locationText = locations.length ? locations.join(', ') : '-';
 
-  const usingFallbackScheduleList = Boolean(dashboard && !dashboard.daySchedules.length && dashboard.allSchedules.length);
-  const activeDashboardSlotId = dashboard?.selectedSlotId ?? '';
+    const teamLines = groups.map(
+      (group, index) => `팀 ${index + 1} | 학년 ${group.gradeSummary} | 인원 ${group.memberCount}명 | 장소 ${group.location || '-'}`
+    );
+
+    const studentLines = groups.flatMap((group, index) =>
+      group.students.map((student) => {
+        const grade = student.childGrade ? `/${student.childGrade}` : '';
+        const request = student.noteToInstructor?.trim() || '-';
+        return `- 팀 ${index + 1} ${student.childName}${grade} | 연락처 ${student.parentPhone || '-'} | 요청 ${request}`;
+      })
+    );
+
+    const description = [
+      `[일정 개요]`,
+      `참여팀: ${groups.length}팀`,
+      ...teamLines,
+      '',
+      `[학생/학부모 요청사항]`,
+      ...(studentLines.length ? studentLines : ['- 등록된 학생 정보가 없습니다.']),
+    ].join('\n');
+
+    return {
+      title: `${schedule.classTimeLabel} 일정`,
+      classStartAt: schedule.classStartAt,
+      classEndAt: schedule.classEndAt,
+      locationText,
+      description,
+    };
+  }, [dashboard?.selectedSchedule]);
+
+  useEffect(() => {
+    if (!floatingPosition) return;
+
+    const handleDocumentClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!target) return;
+      if (floatingPanelRef.current?.contains(target)) return;
+      if (target.closest('[data-calendar-item="true"]')) return;
+      setFloatingPosition(null);
+    };
+
+    const handleKeydown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setFloatingPosition(null);
+      }
+    };
+
+    const handleViewportChange = () => {
+      setFloatingPosition(null);
+    };
+
+    document.addEventListener('mousedown', handleDocumentClick);
+    window.addEventListener('keydown', handleKeydown);
+    window.addEventListener('resize', handleViewportChange);
+    window.addEventListener('scroll', handleViewportChange, true);
+
+    return () => {
+      document.removeEventListener('mousedown', handleDocumentClick);
+      window.removeEventListener('keydown', handleKeydown);
+      window.removeEventListener('resize', handleViewportChange);
+      window.removeEventListener('scroll', handleViewportChange, true);
+    };
+  }, [floatingPosition]);
 
   return (
     <main className={styles.page}>
@@ -474,6 +526,7 @@ export default function InstructorAdminPage() {
                 setInstructorCookie(next);
                 setSelectedSlotId('');
                 setSelectedGroupId('');
+                setFloatingPosition(null);
               }}
             >
               {instructorOptions.map((name) => (
@@ -490,15 +543,99 @@ export default function InstructorAdminPage() {
               setSelectedDate(nextDate);
               setSelectedSlotId('');
               setSelectedGroupId('');
+              setFloatingPosition(null);
             }}
             dayBadges={calendarBadges}
             dayItems={calendarItems}
-            onDayItemSelect={({ date, itemId }) => {
+            onDayItemSelect={({ date, itemId, anchorRect }) => {
+              const panelWidth = Math.min(380, window.innerWidth - 24);
+              const gutter = 12;
+              let nextLeft = anchorRect.right + gutter;
+
+              if (nextLeft + panelWidth > window.innerWidth - gutter) {
+                nextLeft = Math.max(gutter, anchorRect.left - panelWidth - gutter);
+              }
+
+              const nextTop = Math.min(
+                Math.max(gutter, anchorRect.top - 6),
+                Math.max(gutter, window.innerHeight - 260)
+              );
+
               setSelectedDate(date);
               setSelectedSlotId(itemId);
               setSelectedGroupId('');
+              setFloatingPosition({
+                top: nextTop,
+                left: nextLeft,
+              });
             }}
           />
+
+          {selectedScheduleDetail && floatingPosition ? (
+            <aside
+              ref={floatingPanelRef}
+              className={styles.floatingDetail}
+              style={{
+                top: `${floatingPosition.top}px`,
+                left: `${floatingPosition.left}px`,
+              }}
+            >
+              <div className={styles.floatingHead}>
+                <p className={styles.groupTitle}>{selectedScheduleDetail.title}</p>
+                <button type="button" className={styles.floatingCloseButton} onClick={() => setFloatingPosition(null)}>
+                  닫기
+                </button>
+              </div>
+              <p className={styles.groupMeta}>
+                {formatDateTime(selectedScheduleDetail.classStartAt)} ~ {formatDateTime(selectedScheduleDetail.classEndAt)}
+              </p>
+              <p className={styles.groupMeta}>위치: {selectedScheduleDetail.locationText}</p>
+              <p className={styles.groupMeta}>담당 강사: {activeInstructor || '-'}</p>
+
+              {selectedScheduleSummary ? (
+                <div className={styles.summaryGrid}>
+                  <div className={styles.summaryCard}>
+                    <p className={styles.summaryLabel}>교육 인원</p>
+                    <p className={styles.summaryValue}>{selectedScheduleSummary.totalMembers}명</p>
+                  </div>
+                  <div className={styles.summaryCard}>
+                    <p className={styles.summaryLabel}>참여 학년</p>
+                    <p className={styles.summarySub}>{selectedScheduleSummary.gradeSummary}</p>
+                  </div>
+                </div>
+              ) : null}
+
+              <div className={styles.scheduleBlock}>
+                <p className={styles.blockLabel}>설명</p>
+                <pre className={styles.descriptionBlock}>{selectedScheduleDetail.description}</pre>
+              </div>
+
+              {dashboard?.selectedSchedule ? (
+                <div className={styles.scheduleBlock}>
+                  <p className={styles.blockLabel}>팀 선택</p>
+                  <div className={styles.teamSelectList}>
+                    {dashboard.selectedSchedule.groups.map((group, index) => (
+                      <button
+                        key={`team-select-float-${group.groupId}`}
+                        type="button"
+                        className={
+                          group.groupId === selectedGroupId
+                            ? `${styles.teamSelectButton} ${styles.teamSelectButtonActive}`
+                            : styles.teamSelectButton
+                        }
+                        onClick={() => setSelectedGroupId(group.groupId)}
+                      >
+                        <span className={styles.teamSelectTitle}>팀 {index + 1}</span>
+                        <span className={styles.teamSelectMeta}>
+                          {group.gradeSummary} / {group.memberCount}명
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </aside>
+          ) : null}
 
           <div className={styles.summaryGrid}>
             <div className={styles.summaryCard}>
@@ -514,66 +651,6 @@ export default function InstructorAdminPage() {
           </div>
         </article>
 
-        <article className={styles.panel}>
-          <h2 className={styles.panelTitle}>해당 날짜 일정</h2>
-          <p className={styles.infoText}>{selectedDate}</p>
-
-          {loading ? <p className={styles.infoText}>불러오는 중...</p> : null}
-          {loadingError ? <p className={styles.errorText}>{loadingError}</p> : null}
-
-          {!loading && !loadingError ? (
-            <>
-              <div className={styles.scheduleBlock}>
-                <p className={styles.blockLabel}>내 일정 목록</p>
-                {usingFallbackScheduleList ? (
-                  <p className={styles.infoText}>선택 강사 일정이 없어 해당 날짜 전체 일정을 표시합니다.</p>
-                ) : null}
-                {daySchedulesToRender.length ? (
-                  <div className={styles.scheduleList}>
-                    {daySchedulesToRender.map((schedule) => (
-                      <button
-                        key={schedule.slotId}
-                        type="button"
-                        className={
-                          schedule.slotId === activeDashboardSlotId
-                            ? `${styles.scheduleButton} ${styles.scheduleButtonActive}`
-                            : styles.scheduleButton
-                        }
-                        onClick={() => {
-                          setSelectedSlotId(schedule.slotId);
-                          setSelectedGroupId('');
-                        }}
-                      >
-                        <span className={styles.scheduleTitle}>{schedule.classTimeLabel}</span>
-                        {schedule.instructorName ? (
-                          <span className={styles.scheduleMeta}>강사: {schedule.instructorName}</span>
-                        ) : null}
-                        <span className={styles.scheduleMeta}>팀 {schedule.groupCount}개</span>
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <p className={styles.infoText}>선택 날짜에 등록된 내 일정이 없습니다.</p>
-                )}
-              </div>
-
-              <div className={styles.scheduleBlock}>
-                <p className={styles.blockLabel}>전체 일정 요약</p>
-                {dashboard?.allSchedules.length ? (
-                  <ul className={styles.allScheduleList}>
-                    {dashboard.allSchedules.map((schedule) => (
-                      <li key={`${schedule.slotId}-all`} className={styles.allScheduleItem}>
-                        {schedule.classTimeLabel} / {schedule.instructorName} / 팀 {schedule.groupCount}개
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className={styles.infoText}>선택 날짜에 등록된 전체 일정이 없습니다.</p>
-                )}
-              </div>
-            </>
-          ) : null}
-        </article>
       </section>
 
       <section className={styles.panel}>
@@ -581,143 +658,101 @@ export default function InstructorAdminPage() {
         {noteMessage ? <p className={styles.successText}>{noteMessage}</p> : null}
         {noteError ? <p className={styles.errorText}>{noteError}</p> : null}
 
-        {dashboard?.selectedSchedule ? (
+        {selectedGroup ? (
           <div className={styles.groupList}>
-            <article className={styles.scheduleHeaderCard}>
-              <p className={styles.groupTitle}>{dashboard.selectedSchedule.classTimeLabel}</p>
-              <p className={styles.groupMeta}>참여 팀 수: {dashboard.selectedSchedule.groupCount}개</p>
-              {selectedScheduleSummary ? (
-                <div className={styles.summaryGrid}>
-                  <div className={styles.summaryCard}>
-                    <p className={styles.summaryLabel}>교육 인원</p>
-                    <p className={styles.summaryValue}>{selectedScheduleSummary.totalMembers}명</p>
-                  </div>
-                  <div className={styles.summaryCard}>
-                    <p className={styles.summaryLabel}>참여 학년</p>
-                    <p className={styles.summarySub}>{selectedScheduleSummary.gradeSummary}</p>
-                  </div>
-                </div>
-              ) : null}
-              <div className={styles.teamSelectList}>
-                {dashboard.selectedSchedule.groups.map((group, index) => (
-                  <button
-                    key={`team-select-${group.groupId}`}
-                    type="button"
-                    className={
-                      group.groupId === selectedGroupId
-                        ? `${styles.teamSelectButton} ${styles.teamSelectButtonActive}`
-                        : styles.teamSelectButton
-                    }
-                    onClick={() => setSelectedGroupId(group.groupId)}
-                  >
-                    <span className={styles.teamSelectTitle}>팀 {index + 1}</span>
-                    <span className={styles.teamSelectMeta}>
-                      {group.gradeSummary} / {group.memberCount}명
-                    </span>
-                  </button>
+            <article key={selectedGroup.groupId} className={styles.groupCard}>
+              <div className={styles.groupTop}>
+                <p className={styles.groupTitle}>팀 {selectedGroup.groupId.slice(0, 8)}</p>
+                <p className={styles.groupMeta}>장소: {selectedGroup.location || '-'}</p>
+                <p className={styles.groupMeta}>
+                  학년: {selectedGroup.gradeSummary} / 인원: {selectedGroup.memberCount}명
+                </p>
+              </div>
+
+              <div className={styles.studentList}>
+                {selectedGroup.students.map((student) => (
+                  <article key={student.groupMemberId} className={styles.studentCard}>
+                    <p className={styles.studentName}>
+                      {student.childName}
+                      {student.childGrade ? ` (${student.childGrade})` : ''}
+                    </p>
+                    <p className={styles.studentMeta}>학부모 연락처: {student.parentPhone || '-'}</p>
+                    <p className={styles.studentMeta}>
+                      이전 교육경험: 학생 {yesNoLabel(student.priorStudentAttended)} / 형제·자매{' '}
+                      {yesNoLabel(student.siblingsPriorAttended)} / 부모 {yesNoLabel(student.parentPriorAttended)}
+                    </p>
+                    <p className={styles.studentMeta}>교육요청사항: {student.noteToInstructor || '-'}</p>
+
+                    <div className={styles.historyBlock}>
+                      <p className={styles.blockLabel}>자동 조회 과거 이력</p>
+                      {student.history.length ? (
+                        <ul className={styles.historyList}>
+                          {student.history.map((history) => (
+                            <li
+                              key={`${student.groupMemberId}-${history.groupId}-${history.classStartAt}`}
+                              className={styles.historyItem}
+                            >
+                              <p className={styles.historyMeta}>
+                                {formatDateTime(history.classStartAt)} / 강사: {history.instructorName} / 장소:{' '}
+                                {history.location || '-'}
+                              </p>
+                              <p className={styles.historyMeta}>당시 요청사항: {history.parentRequestNote || '-'}</p>
+                              <p className={styles.historyMeta}>
+                                당시 교육경험: 학생 {yesNoLabel(history.priorStudentAttended)} / 형제·자매{' '}
+                                {yesNoLabel(history.siblingsPriorAttended)} / 부모 {yesNoLabel(history.parentPriorAttended)}
+                              </p>
+                              {history.instructorMemos.length ? (
+                                <ul className={styles.memoList}>
+                                  {history.instructorMemos.map((memo) => (
+                                    <li
+                                      key={`${history.groupId}-${memo.createdAtIso}-${memo.content}`}
+                                      className={styles.memoItem}
+                                    >
+                                      <p className={styles.memoMeta}>
+                                        {formatDateTime(memo.createdAtIso)} / {memo.instructorName}
+                                      </p>
+                                      <p className={styles.memoContent}>{memo.content}</p>
+                                    </li>
+                                  ))}
+                                </ul>
+                              ) : null}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className={styles.infoText}>조회된 과거 이력이 없습니다.</p>
+                      )}
+                    </div>
+                  </article>
                 ))}
               </div>
+
+              <div className={styles.memoBlock}>
+                <p className={styles.blockLabel}>교육 후 특이사항</p>
+                <textarea
+                  rows={3}
+                  value={noteDrafts[selectedGroup.groupId] ?? ''}
+                  onChange={(event) =>
+                    setNoteDrafts((prev) => ({
+                      ...prev,
+                      [selectedGroup.groupId]: event.target.value,
+                    }))
+                  }
+                  placeholder="해당 팀 교육 후 참고할 특이사항을 기록해 주세요."
+                />
+                <button
+                  type="button"
+                  className={styles.primaryButton}
+                  disabled={
+                    savingGroupId === selectedGroup.groupId || !(noteDrafts[selectedGroup.groupId] || '').trim()
+                  }
+                  onClick={() => onSaveGroupNote(selectedGroup.groupId)}
+                >
+                  {savingGroupId === selectedGroup.groupId ? '저장 중...' : '특이사항 저장'}
+                </button>
+              </div>
             </article>
-
-            {selectedGroup ? (
-              <article key={selectedGroup.groupId} className={styles.groupCard}>
-                <div className={styles.groupTop}>
-                  <p className={styles.groupTitle}>팀 {selectedGroup.groupId.slice(0, 8)}</p>
-                  <p className={styles.groupMeta}>장소: {selectedGroup.location || '-'}</p>
-                  <p className={styles.groupMeta}>
-                    학년: {selectedGroup.gradeSummary} / 인원: {selectedGroup.memberCount}명
-                  </p>
-                </div>
-
-                <div className={styles.studentList}>
-                  {selectedGroup.students.map((student) => (
-                    <article key={student.groupMemberId} className={styles.studentCard}>
-                      <p className={styles.studentName}>
-                        {student.childName}
-                        {student.childGrade ? ` (${student.childGrade})` : ''}
-                      </p>
-                      <p className={styles.studentMeta}>학부모 연락처: {student.parentPhone || '-'}</p>
-                      <p className={styles.studentMeta}>
-                        이전 교육경험: 학생 {yesNoLabel(student.priorStudentAttended)} / 형제·자매{' '}
-                        {yesNoLabel(student.siblingsPriorAttended)} / 부모 {yesNoLabel(student.parentPriorAttended)}
-                      </p>
-                      <p className={styles.studentMeta}>교육요청사항: {student.noteToInstructor || '-'}</p>
-
-                      <div className={styles.historyBlock}>
-                        <p className={styles.blockLabel}>자동 조회 과거 이력</p>
-                        {student.history.length ? (
-                          <ul className={styles.historyList}>
-                            {student.history.map((history) => (
-                              <li
-                                key={`${student.groupMemberId}-${history.groupId}-${history.classStartAt}`}
-                                className={styles.historyItem}
-                              >
-                                <p className={styles.historyMeta}>
-                                  {formatDateTime(history.classStartAt)} / 강사: {history.instructorName} / 장소:{' '}
-                                  {history.location || '-'}
-                                </p>
-                                <p className={styles.historyMeta}>당시 요청사항: {history.parentRequestNote || '-'}</p>
-                                <p className={styles.historyMeta}>
-                                  당시 교육경험: 학생 {yesNoLabel(history.priorStudentAttended)} / 형제·자매{' '}
-                                  {yesNoLabel(history.siblingsPriorAttended)} / 부모 {yesNoLabel(history.parentPriorAttended)}
-                                </p>
-                                {history.instructorMemos.length ? (
-                                  <ul className={styles.memoList}>
-                                    {history.instructorMemos.map((memo) => (
-                                      <li
-                                        key={`${history.groupId}-${memo.createdAtIso}-${memo.content}`}
-                                        className={styles.memoItem}
-                                      >
-                                        <p className={styles.memoMeta}>
-                                          {formatDateTime(memo.createdAtIso)} / {memo.instructorName}
-                                        </p>
-                                        <p className={styles.memoContent}>{memo.content}</p>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                ) : null}
-                              </li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <p className={styles.infoText}>조회된 과거 이력이 없습니다.</p>
-                        )}
-                      </div>
-                    </article>
-                  ))}
-                </div>
-
-                <div className={styles.memoBlock}>
-                  <p className={styles.blockLabel}>교육 후 특이사항</p>
-                  <textarea
-                    rows={3}
-                    value={noteDrafts[selectedGroup.groupId] ?? ''}
-                    onChange={(event) =>
-                      setNoteDrafts((prev) => ({
-                        ...prev,
-                        [selectedGroup.groupId]: event.target.value,
-                      }))
-                    }
-                    placeholder="해당 팀 교육 후 참고할 특이사항을 기록해 주세요."
-                  />
-                  <button
-                    type="button"
-                    className={styles.primaryButton}
-                    disabled={
-                      savingGroupId === selectedGroup.groupId || !(noteDrafts[selectedGroup.groupId] || '').trim()
-                    }
-                    onClick={() => onSaveGroupNote(selectedGroup.groupId)}
-                  >
-                    {savingGroupId === selectedGroup.groupId ? '저장 중...' : '특이사항 저장'}
-                  </button>
-                </div>
-              </article>
-            ) : (
-              <p className={styles.infoText}>일정에 포함된 팀을 선택하면 상세 정보가 표시됩니다.</p>
-            )}
           </div>
-        ) : selectedSlotId ? (
-          <p className={styles.infoText}>선택한 일정 정보를 찾을 수 없습니다. 일정을 다시 선택해 주세요.</p>
         ) : null}
       </section>
     </main>
