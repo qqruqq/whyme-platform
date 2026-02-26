@@ -110,6 +110,13 @@ type FloatingPosition = {
   left: number;
 };
 
+type FloatingAnchor = {
+  top: number;
+  bottom: number;
+  left: number;
+  right: number;
+};
+
 type ApiErrorPayload = {
   error?: string;
   details?: {
@@ -151,6 +158,17 @@ function formatDateTime(value: string): string {
   }).format(date);
 }
 
+function formatDateOnly(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value.slice(0, 10) || '-';
+
+  return new Intl.DateTimeFormat('ko-KR', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date);
+}
+
 function yesNoLabel(value: boolean | null): string {
   if (value === true) return '있음';
   if (value === false) return '없음';
@@ -179,6 +197,7 @@ export default function InstructorAdminPage() {
   const latestFetchIdRef = useRef(0);
   const floatingPanelRef = useRef<HTMLDivElement | null>(null);
   const [floatingPosition, setFloatingPosition] = useState<FloatingPosition | null>(null);
+  const [floatingAnchor, setFloatingAnchor] = useState<FloatingAnchor | null>(null);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -250,11 +269,18 @@ export default function InstructorAdminPage() {
 
   useEffect(() => {
     const groups = dashboard?.selectedSchedule?.groups ?? [];
-    if (!selectedGroupId) return;
-    const exists = groups.some((group) => group.groupId === selectedGroupId);
-    if (!exists) {
-      setSelectedGroupId('');
+    if (!groups.length) {
+      if (selectedGroupId) {
+        setSelectedGroupId('');
+      }
+      return;
     }
+
+    if (selectedGroupId && groups.some((group) => group.groupId === selectedGroupId)) {
+      return;
+    }
+
+    setSelectedGroupId(groups[0]?.groupId ?? '');
   }, [dashboard?.selectedSchedule?.groups, selectedGroupId]);
 
   const onSaveGroupNote = useCallback(
@@ -358,6 +384,7 @@ export default function InstructorAdminPage() {
     setSelectedSlotId('');
     setSelectedGroupId('');
     setFloatingPosition(null);
+    setFloatingAnchor(null);
   }, [calendarItems, firstAvailableDate, selectedDate]);
 
   const selectedGroup =
@@ -432,31 +459,55 @@ export default function InstructorAdminPage() {
     const locations = Array.from(new Set(groups.map((group) => group.location).filter(Boolean)));
     const locationText = locations.length ? locations.join(', ') : '-';
 
-    const teamLines = groups.map(
-      (group, index) => `팀 ${index + 1} | 학년 ${group.gradeSummary} | 인원 ${group.memberCount}명 | 장소 ${group.location || '-'}`
-    );
+    const teamNames = groups.map((group, index) => {
+      const leaderFirstChildName = group.students[0]?.childName?.trim() || '';
+      return leaderFirstChildName ? `${leaderFirstChildName} 팀` : `팀 ${index + 1}`;
+    });
 
-    const studentLines = groups.flatMap((group, index) =>
+    const teamBlocks = groups.map((group, index) => {
+      const teamName = teamNames[index] || `팀 ${index + 1}`;
+      const uniqueGrades = Array.from(
+        new Set(group.students.map((student) => student.childGrade?.trim() || '').filter(Boolean))
+      );
+
+      return [
+        `${teamName} | ${group.memberCount}명`,
+        uniqueGrades.length ? uniqueGrades.join(', ') : '-',
+        group.location || '-',
+      ].join('\n');
+    });
+
+    const studentLines = groups.flatMap((group) =>
       group.students.map((student) => {
-        const grade = student.childGrade ? `/${student.childGrade}` : '';
+        const grade = student.childGrade?.trim() || '-';
         const request = student.noteToInstructor?.trim() || '-';
-        return `- 팀 ${index + 1} ${student.childName}${grade} | 연락처 ${student.parentPhone || '-'} | 요청 ${request}`;
+        const historyDates = student.history.length
+          ? student.history.slice(0, 5).map((history) => formatDateOnly(history.classStartAt))
+          : ['없음'];
+        const historyLines = historyDates.map((dateLabel) => `    - ${dateLabel}`);
+
+        return [
+          `• ${student.childName} / ${grade}`,
+          `  학부모 연락처 ${student.parentPhone || '-'}`,
+          `  요청사항 ${request}`,
+          `  이전 교육 이력`,
+          ...historyLines,
+        ].join('\n');
       })
     );
 
+    const studentSection = studentLines.length ? studentLines.join('\n\n') : '• 등록된 학생 정보가 없습니다.';
+
     const description = [
       `[일정 개요]`,
-      `참여팀: ${groups.length}팀`,
-      ...teamLines,
+      ...teamBlocks.flatMap((block, index) => (index === 0 ? [block] : ['', block])),
       '',
-      `[학생/학부모 요청사항]`,
-      ...(studentLines.length ? studentLines : ['- 등록된 학생 정보가 없습니다.']),
+      `[팀원 상세정보]`,
+      studentSection,
     ].join('\n');
 
     return {
       title: `${schedule.classTimeLabel} 일정`,
-      classStartAt: schedule.classStartAt,
-      classEndAt: schedule.classEndAt,
       locationText,
       description,
     };
@@ -471,30 +522,50 @@ export default function InstructorAdminPage() {
       if (floatingPanelRef.current?.contains(target)) return;
       if (target.closest('[data-calendar-item="true"]')) return;
       setFloatingPosition(null);
-    };
-
-    const handleKeydown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setFloatingPosition(null);
-      }
-    };
-
-    const handleViewportChange = () => {
-      setFloatingPosition(null);
+      setFloatingAnchor(null);
     };
 
     document.addEventListener('mousedown', handleDocumentClick);
-    window.addEventListener('keydown', handleKeydown);
-    window.addEventListener('resize', handleViewportChange);
-    window.addEventListener('scroll', handleViewportChange, true);
 
     return () => {
       document.removeEventListener('mousedown', handleDocumentClick);
-      window.removeEventListener('keydown', handleKeydown);
-      window.removeEventListener('resize', handleViewportChange);
-      window.removeEventListener('scroll', handleViewportChange, true);
     };
   }, [floatingPosition]);
+
+  const calculateFloatingPosition = useCallback((anchor: FloatingAnchor, panelHeight: number): FloatingPosition => {
+    const gutter = 12;
+    const panelWidth = Math.min(500, window.innerWidth - 24);
+
+    let left = anchor.right + gutter;
+    if (left + panelWidth > window.innerWidth - gutter) {
+      left = Math.max(gutter, anchor.left - panelWidth - gutter);
+    }
+
+    const normalizedHeight = Math.min(panelHeight, window.innerHeight - gutter * 2);
+    const spaceBelow = window.innerHeight - anchor.bottom - gutter;
+    const spaceAbove = anchor.top - gutter;
+
+    let top: number;
+    if (spaceBelow < Math.min(320, normalizedHeight) && spaceAbove > spaceBelow) {
+      top = anchor.top - normalizedHeight - gutter;
+    } else {
+      top = anchor.top - 6;
+    }
+
+    const minTop = gutter;
+    const maxTop = Math.max(gutter, window.innerHeight - normalizedHeight - gutter);
+    top = Math.min(Math.max(minTop, top), maxTop);
+
+    return { top, left };
+  }, []);
+
+  useEffect(() => {
+    if (!floatingAnchor || !selectedScheduleDetail) return;
+
+    const panelHeight = floatingPanelRef.current?.offsetHeight ?? Math.min(560, window.innerHeight - 24);
+    const next = calculateFloatingPosition(floatingAnchor, panelHeight);
+    setFloatingPosition((prev) => (prev && prev.top === next.top && prev.left === next.left ? prev : next));
+  }, [calculateFloatingPosition, floatingAnchor, selectedScheduleDetail]);
 
   return (
     <main className={styles.page}>
@@ -527,6 +598,7 @@ export default function InstructorAdminPage() {
                 setSelectedSlotId('');
                 setSelectedGroupId('');
                 setFloatingPosition(null);
+                setFloatingAnchor(null);
               }}
             >
               {instructorOptions.map((name) => (
@@ -544,30 +616,24 @@ export default function InstructorAdminPage() {
               setSelectedSlotId('');
               setSelectedGroupId('');
               setFloatingPosition(null);
+              setFloatingAnchor(null);
             }}
             dayBadges={calendarBadges}
             dayItems={calendarItems}
             onDayItemSelect={({ date, itemId, anchorRect }) => {
-              const panelWidth = Math.min(380, window.innerWidth - 24);
-              const gutter = 12;
-              let nextLeft = anchorRect.right + gutter;
-
-              if (nextLeft + panelWidth > window.innerWidth - gutter) {
-                nextLeft = Math.max(gutter, anchorRect.left - panelWidth - gutter);
-              }
-
-              const nextTop = Math.min(
-                Math.max(gutter, anchorRect.top - 6),
-                Math.max(gutter, window.innerHeight - 260)
-              );
+              const nextAnchor: FloatingAnchor = {
+                top: anchorRect.top,
+                bottom: anchorRect.bottom,
+                left: anchorRect.left,
+                right: anchorRect.right,
+              };
+              const nextPosition = calculateFloatingPosition(nextAnchor, Math.min(560, window.innerHeight - 24));
 
               setSelectedDate(date);
               setSelectedSlotId(itemId);
               setSelectedGroupId('');
-              setFloatingPosition({
-                top: nextTop,
-                left: nextLeft,
-              });
+              setFloatingAnchor(nextAnchor);
+              setFloatingPosition(nextPosition);
             }}
           />
 
@@ -582,13 +648,18 @@ export default function InstructorAdminPage() {
             >
               <div className={styles.floatingHead}>
                 <p className={styles.groupTitle}>{selectedScheduleDetail.title}</p>
-                <button type="button" className={styles.floatingCloseButton} onClick={() => setFloatingPosition(null)}>
-                  닫기
+                <button
+                  type="button"
+                  className={styles.floatingCloseButton}
+                  aria-label="닫기"
+                  onClick={() => {
+                    setFloatingPosition(null);
+                    setFloatingAnchor(null);
+                  }}
+                >
+                  x
                 </button>
               </div>
-              <p className={styles.groupMeta}>
-                {formatDateTime(selectedScheduleDetail.classStartAt)} ~ {formatDateTime(selectedScheduleDetail.classEndAt)}
-              </p>
               <p className={styles.groupMeta}>위치: {selectedScheduleDetail.locationText}</p>
               <p className={styles.groupMeta}>담당 강사: {activeInstructor || '-'}</p>
 
@@ -606,34 +677,8 @@ export default function InstructorAdminPage() {
               ) : null}
 
               <div className={styles.scheduleBlock}>
-                <p className={styles.blockLabel}>설명</p>
                 <pre className={styles.descriptionBlock}>{selectedScheduleDetail.description}</pre>
               </div>
-
-              {dashboard?.selectedSchedule ? (
-                <div className={styles.scheduleBlock}>
-                  <p className={styles.blockLabel}>팀 선택</p>
-                  <div className={styles.teamSelectList}>
-                    {dashboard.selectedSchedule.groups.map((group, index) => (
-                      <button
-                        key={`team-select-float-${group.groupId}`}
-                        type="button"
-                        className={
-                          group.groupId === selectedGroupId
-                            ? `${styles.teamSelectButton} ${styles.teamSelectButtonActive}`
-                            : styles.teamSelectButton
-                        }
-                        onClick={() => setSelectedGroupId(group.groupId)}
-                      >
-                        <span className={styles.teamSelectTitle}>팀 {index + 1}</span>
-                        <span className={styles.teamSelectMeta}>
-                          {group.gradeSummary} / {group.memberCount}명
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
             </aside>
           ) : null}
 
