@@ -50,6 +50,13 @@
   gap: 12px;
 }
 
+.adminRow {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .primaryCta {
   display: inline-flex;
   align-items: center;
@@ -98,6 +105,26 @@
   font-size: 14px;
 }
 
+.tertiaryCta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  border: 1px solid rgba(var(--color-line-rgb), 0.95);
+  min-height: 42px;
+  padding: 0 14px;
+  font-size: 14px;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.94);
+  color: rgba(var(--color-ink-rgb), 0.82);
+  transition: border-color var(--motion-fast) ease, background-color var(--motion-fast) ease;
+}
+
+.tertiaryCta:hover {
+  border-color: rgba(var(--color-primary-rgb), 0.5);
+  background: rgba(var(--color-secondary-rgb), 0.25);
+}
+
 .glowA,
 .glowB {
   position: absolute;
@@ -135,6 +162,11 @@
   .ctaRow {
     display: grid;
     grid-template-columns: 1fr;
+  }
+
+  .adminRow {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
   }
 
   .primaryCta,

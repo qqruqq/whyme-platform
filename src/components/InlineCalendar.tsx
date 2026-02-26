@@ -3,9 +3,28 @@
 import { useEffect, useMemo, useState } from 'react'
 import styles from './InlineCalendar.module.css'
 
+export type InlineCalendarDayBadge = {
+  primary?: string
+  secondary?: string
+}
+
+export type InlineCalendarDayItem = {
+  id: string
+  label: string
+  selected?: boolean
+}
+
+export type InlineCalendarDayItemSelectPayload = {
+  date: string
+  itemId: string
+}
+
 type InlineCalendarProps = {
   value: string
   onChange: (nextValue: string) => void
+  dayBadges?: Record<string, InlineCalendarDayBadge>
+  dayItems?: Record<string, InlineCalendarDayItem[]>
+  onDayItemSelect?: (payload: InlineCalendarDayItemSelectPayload) => void
 }
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토']
@@ -49,7 +68,13 @@ function isSameDate(a: Date, b: Date): boolean {
   return isSameMonth(a, b) && a.getDate() === b.getDate()
 }
 
-export default function InlineCalendar({ value, onChange }: InlineCalendarProps) {
+export default function InlineCalendar({
+  value,
+  onChange,
+  dayBadges,
+  dayItems,
+  onDayItemSelect,
+}: InlineCalendarProps) {
   const selectedDate = useMemo(() => parseDateKey(value), [value])
 
   const [displayMonth, setDisplayMonth] = useState<Date>(() =>
@@ -84,7 +109,7 @@ export default function InlineCalendar({ value, onChange }: InlineCalendarProps)
     return new Date(now.getFullYear(), now.getMonth(), now.getDate())
   }, [])
 
-  const monthLabel = `${displayMonth.getFullYear()}.${pad2(displayMonth.getMonth() + 1)}`
+  const monthLabel = `${displayMonth.getFullYear()}년 ${pad2(displayMonth.getMonth() + 1)}월`
 
   return (
     <div className={styles.calendarRoot}>
@@ -130,25 +155,71 @@ export default function InlineCalendar({ value, onChange }: InlineCalendarProps)
                   const isToday = isSameDate(day, today)
                   const isWeekend = day.getDay() === 0 || day.getDay() === 6
                   const nextValue = formatDateKey(day)
+                  const badge = dayBadges?.[nextValue]
+                  const hasBadge = Boolean(badge?.primary || badge?.secondary)
+                  const items = dayItems?.[nextValue] ?? []
+                  const hasItems = items.length > 0
 
                   return (
                     <td key={nextValue}>
-                      <button
-                        type="button"
+                      <div
                         className={[
-                          styles.dateButton,
-                          isSelected ? styles.dateButtonSelected : '',
-                          !isCurrentMonth ? styles.dateButtonOutside : '',
-                          isToday ? styles.dateButtonToday : '',
-                          isWeekend ? styles.dateButtonWeekend : '',
+                          styles.dayCell,
+                          hasItems ? styles.dayCellWithItems : '',
+                          !isCurrentMonth ? styles.dayCellOutside : '',
                         ]
                           .filter(Boolean)
                           .join(' ')}
-                        onClick={() => onChange(nextValue)}
-                        aria-selected={isSelected}
                       >
-                        <span className={styles.dateNumber}>{day.getDate()}</span>
-                      </button>
+                        <button
+                          type="button"
+                          className={[
+                            styles.dateButton,
+                            isSelected ? styles.dateButtonSelected : '',
+                            isToday ? styles.dateButtonToday : '',
+                            isWeekend ? styles.dateButtonWeekend : '',
+                            hasBadge ? styles.dateButtonWithBadge : '',
+                          ]
+                            .filter(Boolean)
+                            .join(' ')}
+                          onClick={() => onChange(nextValue)}
+                          aria-selected={isSelected}
+                        >
+                          <span className={styles.dateInner}>
+                            <span className={styles.dateNumber}>{day.getDate()}</span>
+                            {badge?.primary ? <span className={styles.badgePrimary}>{badge.primary}</span> : null}
+                            {badge?.secondary ? <span className={styles.badgeSecondary}>{badge.secondary}</span> : null}
+                          </span>
+                        </button>
+
+                        {hasItems ? (
+                          <span className={styles.itemList}>
+                            {items.map((item) =>
+                              onDayItemSelect ? (
+                                <button
+                                  key={`${nextValue}-item-${item.id}`}
+                                  type="button"
+                                  className={
+                                    item.selected ? `${styles.itemButton} ${styles.itemButtonSelected}` : styles.itemButton
+                                  }
+                                  onClick={() =>
+                                    onDayItemSelect({
+                                      date: nextValue,
+                                      itemId: item.id,
+                                    })
+                                  }
+                                >
+                                  {item.label}
+                                </button>
+                              ) : (
+                                <span key={`${nextValue}-item-${item.id}`} className={styles.itemRow}>
+                                  {item.label}
+                                </span>
+                              )
+                            )}
+                          </span>
+                        ) : null}
+                      </div>
                     </td>
                   )
                 })}

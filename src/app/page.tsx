@@ -20,6 +20,14 @@ export default function Home() {
                         예약 내역 조회/수정
                     </Link>
                 </div>
+                <div className={styles.adminRow}>
+                    <Link href="/admin/instructor" className={styles.tertiaryCta}>
+                        강사 관리
+                    </Link>
+                    <Link href="/admin/ops" className={styles.tertiaryCta}>
+                        실무자 관리
+                    </Link>
+                </div>
                 <p className={styles.note}>
                     예약 생성 후 발급되는 관리 링크로 팀원 초대와 명단 관리를 진행할 수 있습니다.
                 </p>
