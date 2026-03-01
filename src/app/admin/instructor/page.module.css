@@ -69,6 +69,59 @@
   line-height: 1.2;
 }
 
+.loginPanel {
+  display: grid;
+  gap: 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(var(--color-line-rgb), 0.88);
+  background: rgba(255, 251, 246, 0.78);
+  padding: 12px;
+}
+
+.authBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.authText {
+  margin: 0;
+  font-size: 13px;
+  color: rgba(var(--color-ink-rgb), 0.8);
+}
+
+.ghostButton {
+  border: 1px solid rgba(var(--color-line-rgb), 0.92);
+  border-radius: 12px;
+  min-height: 40px;
+  padding: 0 12px;
+  background: rgba(255, 255, 255, 0.92);
+  color: rgba(var(--color-ink-rgb), 0.82);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.checkboxField {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+}
+
+.checkboxField input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+}
+
+.checkboxField span {
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(var(--color-ink-rgb), 0.84);
+}
+
 .field {
   display: grid;
   gap: 6px;
@@ -139,6 +192,43 @@
   margin: 4px 0 0;
   font-size: 13px;
   color: rgba(var(--color-ink-rgb), 0.72);
+}
+
+.todayScheduleHead {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.todayScheduleGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.todayScheduleCard {
+  border-radius: 12px;
+  border: 1px solid rgba(var(--color-line-rgb), 0.9);
+  background: rgba(255, 251, 246, 0.95);
+  padding: 10px 12px;
+  display: grid;
+  gap: 4px;
+}
+
+.todayScheduleTime {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 800;
+  color: rgba(var(--color-primary-rgb), 0.92);
+}
+
+.todayScheduleTitle {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.45;
+  color: rgba(var(--color-ink-rgb), 0.84);
 }
 
 .scheduleBlock {
@@ -451,7 +541,7 @@
 
 @media (min-width: 980px) {
   .gridLayout {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
     align-items: start;
   }
 }

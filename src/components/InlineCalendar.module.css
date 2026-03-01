@@ -87,7 +87,21 @@
 }
 
 .dayCellToday {
-  box-shadow: inset 0 0 0 2px rgba(var(--color-accent-rgb), 0.3);
+  border-color: #1f4e79;
+  background: linear-gradient(180deg, rgba(31, 78, 121, 0.14), rgba(255, 255, 255, 0.96));
+  box-shadow:
+    inset 0 0 0 2px rgba(31, 78, 121, 0.45),
+    0 0 0 1px rgba(31, 78, 121, 0.26);
+}
+
+.dayCellToday .dayNumberButton {
+  background: #1f4e79;
+  color: #fff;
+  font-weight: 800;
+}
+
+.dayCellToday .dayNumberButton:hover {
+  background: #173c5d;
 }
 
 .dayCellWeekend .dayNumberButton {

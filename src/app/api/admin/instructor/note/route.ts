@@ -2,15 +2,20 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { appendInstructorMemo, extractInstructorMemos } from '@/lib/group-memo';
 import { z } from 'zod';
+import { getAuthenticatedInstructorName } from '@/lib/instructor-auth';
 
 const instructorNoteSchema = z.object({
   groupId: z.string().uuid('groupId 형식이 올바르지 않습니다.'),
-  instructorName: z.string().trim().min(1, '강사명을 입력해주세요.'),
   note: z.string().trim().min(1, '특이사항 내용을 입력해주세요.'),
 });
 
 export async function PATCH(request: Request) {
   try {
+    const instructorName = getAuthenticatedInstructorName(request);
+    if (!instructorName) {
+      return NextResponse.json({ error: '강사 로그인이 필요합니다.' }, { status: 401 });
+    }
+
     const body = await request.json();
     const validation = instructorNoteSchema.safeParse(body);
 
@@ -21,7 +26,7 @@ export async function PATCH(request: Request) {
       );
     }
 
-    const { groupId, instructorName, note } = validation.data;
+    const { groupId, note } = validation.data;
 
     const group = await prisma.groupPass.findUnique({
       where: {

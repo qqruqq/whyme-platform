@@ -20,9 +20,15 @@ export type InlineCalendarDayItemSelectPayload = {
   anchorRect: DOMRectReadOnly
 }
 
+export type InlineCalendarDateSelectPayload = {
+  date: string
+  anchorRect: DOMRectReadOnly
+}
+
 type InlineCalendarProps = {
   value: string
   onChange: (nextValue: string) => void
+  onDateSelect?: (payload: InlineCalendarDateSelectPayload) => void
   dayBadges?: Record<string, InlineCalendarDayBadge>
   dayItems?: Record<string, InlineCalendarDayItem[]>
   onDayItemSelect?: (payload: InlineCalendarDayItemSelectPayload) => void
@@ -72,6 +78,7 @@ function isSameDate(a: Date, b: Date): boolean {
 export default function InlineCalendar({
   value,
   onChange,
+  onDateSelect,
   dayBadges,
   dayItems,
   onDayItemSelect,
@@ -180,7 +187,13 @@ export default function InlineCalendar({
                           <button
                             type="button"
                             className={styles.dayNumberButton}
-                            onClick={() => onChange(nextValue)}
+                            onClick={(event) => {
+                              onChange(nextValue)
+                              onDateSelect?.({
+                                date: nextValue,
+                                anchorRect: event.currentTarget.getBoundingClientRect(),
+                              })
+                            }}
                             aria-selected={isSelected}
                           >
                             {day.getDate()}

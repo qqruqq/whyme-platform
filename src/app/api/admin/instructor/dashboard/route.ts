@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { extractInstructorMemos, extractLocationFromMemo } from '@/lib/group-memo';
+import {
+  getAuthenticatedInstructorName,
+  normalizeInstructorName,
+} from '@/lib/instructor-auth';
 
 function pad2(value: number): string {
   return String(value).padStart(2, '0');
@@ -41,26 +45,34 @@ function formatTimeLabel(startAt: Date, endAt: Date): string {
   return `${formatter.format(startAt)} ~ ${formatter.format(endAt)}`;
 }
 
-function getCookieValue(cookieHeader: string | null, key: string): string {
-  if (!cookieHeader) return '';
+type GroupWithMembers = {
+  groupMembers: Array<{
+    child: {
+      name: string;
+      grade: string | null;
+    };
+  }>;
+};
 
-  const cookie = cookieHeader
-    .split(';')
-    .map((part) => part.trim())
-    .find((part) => part.startsWith(`${key}=`));
-
-  if (!cookie) return '';
-
-  const value = cookie.slice(key.length + 1);
-  try {
-    return decodeURIComponent(value);
-  } catch {
-    return value;
-  }
+function toTeamName(group: GroupWithMembers): string {
+  const firstChildName = group.groupMembers[0]?.child?.name?.trim() || '';
+  return firstChildName ? `${firstChildName} 팀` : '팀 미정';
 }
 
-function normalizeInstructorName(value: string | null | undefined): string {
-  return (value || '').trim();
+function toGradeSummary(group: GroupWithMembers): string {
+  const grades = Array.from(
+    new Set(
+      group.groupMembers
+        .map((member) => member.child.grade?.trim() || '')
+        .filter((grade): grade is string => Boolean(grade))
+    )
+  );
+
+  return grades.length ? grades.join(', ') : '-';
+}
+
+function toSlotTitle(group: GroupWithMembers): string {
+  return `${toTeamName(group)} / ${toGradeSummary(group)}`;
 }
 
 type CalendarSummary = {
@@ -76,6 +88,8 @@ type CalendarPreviewItem = {
   timeLabel: string;
   groupCount: number;
   instructorName: string;
+  teamName: string;
+  title: string;
 };
 
 type StudentHistoryItem = {
@@ -93,6 +107,14 @@ type StudentHistoryItem = {
   instructorMemos: ReturnType<typeof extractInstructorMemos>;
 };
 
+type LeaderMemoHistoryItem = {
+  groupId: string;
+  classStartAt: Date;
+  createdAtIso: string;
+  instructorName: string;
+  content: string;
+};
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -101,9 +123,14 @@ export async function GET(request: Request) {
     const selectedDate = parseDateInput(searchParams.get('date'), fallbackDate);
 
     const selectedSlotInput = searchParams.get('slotId')?.trim() || '';
-    const queryInstructor = normalizeInstructorName(searchParams.get('instructor'));
-    const headerInstructor = normalizeInstructorName(request.headers.get('x-whyme-instructor'));
-    const cookieInstructor = normalizeInstructorName(getCookieValue(request.headers.get('cookie'), 'wm_instructor_name'));
+    const includeAllRaw = searchParams.get('includeAll');
+    const includeAll =
+      includeAllRaw === '1' || includeAllRaw === 'true' || includeAllRaw === 'yes' || includeAllRaw === 'on';
+    const selectedInstructor = normalizeInstructorName(getAuthenticatedInstructorName(request));
+
+    if (!selectedInstructor) {
+      return NextResponse.json({ error: '강사 로그인이 필요합니다.' }, { status: 401 });
+    }
 
     const monthStart = new Date(year, month - 1, 1, 0, 0, 0, 0);
     const monthEnd = new Date(year, month, 0, 23, 59, 59, 999);
@@ -122,6 +149,12 @@ export async function GET(request: Request) {
         include: {
           groupPasses: {
             include: {
+              leader: {
+                select: {
+                  name: true,
+                  phone: true,
+                },
+              },
               groupMembers: {
                 where: {
                   status: {
@@ -147,53 +180,24 @@ export async function GET(request: Request) {
       }),
     ]);
 
-    const instructorCandidate = normalizeInstructorName(headerInstructor || cookieInstructor || queryInstructor);
     const discoveredInstructors = Array.from(
-      new Set([
-        ...instructorRows
+      new Set(
+        instructorRows
           .map((row) => normalizeInstructorName(row.instructorId))
-          .filter((name): name is string => Boolean(name)),
-        ...(instructorCandidate ? [instructorCandidate] : []),
-      ])
+          .filter((name): name is string => Boolean(name))
+      )
     ).sort((a, b) => a.localeCompare(b));
-
-    const instructors = discoveredInstructors.length ? discoveredInstructors : ['이시훈 대표강사'];
-    const selectedInstructor = normalizeInstructorName(instructorCandidate || instructors[0] || '이시훈 대표강사');
-    const hasSelectedInstructorSlots = slots.some(
+    const instructors = discoveredInstructors.length ? discoveredInstructors : [selectedInstructor];
+    if (!instructors.includes(selectedInstructor)) {
+      instructors.unshift(selectedInstructor);
+    }
+    const mySlotsInMonth = slots.filter(
       (slot) => normalizeInstructorName(slot.instructorId) === selectedInstructor
     );
-    const useAllAsMySchedule = !selectedInstructor || !hasSelectedInstructorSlots;
-
-    const [firstInstructorSlot, firstAnySlot] = await Promise.all([
-      selectedInstructor
-        ? prisma.reservationSlot.findFirst({
-            where: {
-              instructorId: {
-                contains: selectedInstructor,
-                mode: 'insensitive',
-              },
-            },
-            orderBy: {
-              startAt: 'asc',
-            },
-            select: {
-              startAt: true,
-            },
-          })
-        : Promise.resolve(null),
-      prisma.reservationSlot.findFirst({
-        orderBy: {
-          startAt: 'asc',
-        },
-        select: {
-          startAt: true,
-        },
-      }),
-    ]);
-    const firstAvailableDate = firstInstructorSlot?.startAt
-      ? formatLocalDateKey(firstInstructorSlot.startAt)
-      : firstAnySlot?.startAt
-      ? formatLocalDateKey(firstAnySlot.startAt)
+    const firstAvailableDate = mySlotsInMonth[0]?.startAt
+      ? formatLocalDateKey(mySlotsInMonth[0].startAt)
+      : slots[0]?.startAt
+      ? formatLocalDateKey(slots[0].startAt)
       : null;
 
     const daysInMonth = new Date(year, month, 0).getDate();
@@ -221,27 +225,33 @@ export async function GET(request: Request) {
       cell.allGroupCount += slot.groupPasses.length;
 
       const slotInstructor = normalizeInstructorName(slot.instructorId);
-      const isMySlot = useAllAsMySchedule ? true : slotInstructor === selectedInstructor;
+      const isMySlot = slotInstructor === selectedInstructor;
       if (isMySlot) {
         cell.mySlotCount += 1;
         cell.myGroupCount += slot.groupPasses.length;
       }
 
       const previews = calendarPreviewMap.get(dateKey);
-      if (previews) {
+      if (previews && (includeAll || isMySlot)) {
+        const firstGroup = slot.groupPasses[0] ?? null;
+        const teamName = firstGroup ? (isMySlot ? toTeamName(firstGroup) : '전체 일정') : '일정';
+        const title = firstGroup ? (isMySlot ? toSlotTitle(firstGroup) : '타 강사 일정') : '일정';
+
         previews.push({
           slotId: slot.slotId,
           timeLabel: `${pad2(slot.startAt.getHours())}:${pad2(slot.startAt.getMinutes())}`,
           groupCount: slot.groupPasses.length,
           instructorName: slotInstructor,
+          teamName,
+          title,
         });
       }
     }
 
     const allDateSlots = slots.filter((slot) => formatLocalDateKey(slot.startAt) === selectedDate);
-    const myDateSlots = useAllAsMySchedule
-      ? allDateSlots
-      : allDateSlots.filter((slot) => normalizeInstructorName(slot.instructorId) === selectedInstructor);
+    const myDateSlots = allDateSlots.filter(
+      (slot) => normalizeInstructorName(slot.instructorId) === selectedInstructor
+    );
 
     const daySchedules = myDateSlots.map((slot) => ({
       slotId: slot.slotId,
@@ -260,11 +270,12 @@ export async function GET(request: Request) {
       groupCount: slot.groupPasses.length,
     }));
 
-    const selectedSlotInMonth = slots.find((slot) => slot.slotId === selectedSlotInput);
+    const selectedSlotInMonth = mySlotsInMonth.find((slot) => slot.slotId === selectedSlotInput);
     const selectedSlotId = selectedSlotInMonth ? selectedSlotInput : '';
     const selectedSlot = selectedSlotInMonth ?? null;
 
     const historyCache = new Map<string, StudentHistoryItem[]>();
+    const leaderMemoCache = new Map<string, LeaderMemoHistoryItem[]>();
 
     const loadStudentHistory = async (
       currentGroupId: string,
@@ -339,6 +350,65 @@ export async function GET(request: Request) {
       return histories;
     };
 
+    const loadLeaderMemoHistory = async (leaderParentId: string): Promise<LeaderMemoHistoryItem[]> => {
+      const normalizedLeaderParentId = leaderParentId.trim();
+      if (!normalizedLeaderParentId) {
+        return [];
+      }
+
+      const cached = leaderMemoCache.get(normalizedLeaderParentId);
+      if (cached) {
+        return cached;
+      }
+
+      const rows = await prisma.groupPass.findMany({
+        where: {
+          leaderParentId: normalizedLeaderParentId,
+          memoToInstructor: {
+            not: null,
+          },
+        },
+        include: {
+          slot: {
+            select: {
+              startAt: true,
+            },
+          },
+        },
+        orderBy: [
+          {
+            slot: {
+              startAt: 'desc',
+            },
+          },
+          {
+            updatedAt: 'desc',
+          },
+        ],
+        take: 20,
+      });
+
+      const historyItems = rows
+        .flatMap((row) => {
+          const memos = extractInstructorMemos(row.memoToInstructor);
+          return memos.map((memo) => ({
+            groupId: row.groupId,
+            classStartAt: row.slot.startAt,
+            createdAtIso: memo.createdAtIso,
+            instructorName: memo.instructorName,
+            content: memo.content,
+          }));
+        })
+        .sort((a, b) => {
+          const byClassDate = b.classStartAt.getTime() - a.classStartAt.getTime();
+          if (byClassDate !== 0) return byClassDate;
+          return b.createdAtIso.localeCompare(a.createdAtIso);
+        });
+
+      leaderMemoCache.set(normalizedLeaderParentId, historyItems);
+      return historyItems;
+    };
+
     const selectedSchedule = selectedSlot
       ? {
           slotId: selectedSlot.slotId,
@@ -349,6 +419,7 @@ export async function GET(request: Request) {
           groups: await Promise.all(
             selectedSlot.groupPasses.map(async (group) => {
               const members = group.groupMembers;
+              const leaderMemoHistory = await loadLeaderMemoHistory(group.leaderParentId);
               const grades = Array.from(new Set(members.map((member) => member.child.grade).filter(Boolean)));
               const students = await Promise.all(
                 members.map(async (member) => ({
@@ -375,6 +446,9 @@ export async function GET(request: Request) {
                 headcountDeclared: group.headcountDeclared,
                 headcountFinal: group.headcountFinal,
                 memberCount: members.length,
+                leaderParentName: group.leader.name,
+                leaderParentPhone: group.leader.phone,
+                leaderMemoHistory: leaderMemoHistory.filter((item) => item.groupId !== group.groupId).slice(0, 8),
                 students,
                 instructorMemos: extractInstructorMemos(group.memoToInstructor),
               };
