@@ -394,6 +394,9 @@ export default function OpsAdminPage() {
             로그인 관리자: <strong>{actorName || '실무자'}</strong>
           </p>
           <div className={styles.authActions}>
+            <Link href="/admin/content" className={styles.ghostButton}>
+              콘텐츠 관리
+            </Link>
             <Link href="/admin/profile" className={styles.ghostButton}>
               내 정보
             </Link>

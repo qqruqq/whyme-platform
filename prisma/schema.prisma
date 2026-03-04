@@ -258,3 +258,35 @@ model InternalUserSession {
   @@index([expiresAt])
   @@map("internal_user_session")
 }
+
+// 10) 랜딩 페이지 강사 소개 카드
+model LandingInstructor {
+  instructorId String   @id @default(dbgenerated("gen_random_uuid()")) @map("instructor_id") @db.Uuid
+  name         String
+  role         String
+  summary      String?
+  description  String
+  sortOrder    Int      @default(100) @map("sort_order")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([isActive, sortOrder])
+  @@map("landing_instructor")
+}
+
+// 11) 랜딩 페이지 교육 프로그램 카드
+model LandingProgram {
+  programId    String   @id @default(dbgenerated("gen_random_uuid()")) @map("program_id") @db.Uuid
+  title        String
+  description  String
+  highlights   String   @default("")
+  color        String   @default("#1f4e79")
+  sortOrder    Int      @default(100) @map("sort_order")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([isActive, sortOrder])
+  @@map("landing_program")
+}

@@ -237,6 +237,11 @@ export default function AdminProfilePage() {
         </form>
 
         <div className={styles.actions}>
+          {user && user.role !== 'instructor' ? (
+            <Link href="/admin/content" className={styles.backLink}>
+              콘텐츠 관리
+            </Link>
+          ) : null}
           <Link href={dashboardPath} className={styles.backLink}>
             대시보드로 돌아가기
           </Link>

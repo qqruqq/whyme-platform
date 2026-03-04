@@ -1,6 +1,8 @@
 import Link from 'next/link'
+import { unstable_noStore as noStore } from 'next/cache'
 import HorizontalCarousel from '@/components/HorizontalCarousel'
 import ScrollReveal from '@/components/ScrollReveal'
+import { getPublicLandingContent } from '@/lib/landing-content'
 import styles from './page.module.css'
 
 const navItems = [
@@ -24,54 +26,6 @@ const brandCards = [
     {
         title: '학부모 연계 운영',
         description: '대표 학부모 요청사항과 이전 이력을 수업 준비에 반영해 연속성 있는 교육을 만듭니다.',
-    },
-]
-
-const instructorItems = [
-    {
-        name: '이시훈 대표강사',
-        role: '대표강사',
-        summary: '청소년 성교육 · 미디어 리터러시',
-        description: '민감한 주제를 안전하게 다루는 진행 역량과 높은 소통 밀도로 수업 몰입을 이끌어냅니다.',
-    },
-    {
-        name: '박세림 강사',
-        role: '소그룹 강사',
-        summary: '또래 상호작용 중심 진행',
-        description: '팀별 분위기를 빠르게 파악해 학생들이 스스로 말하고 정리하도록 토론형 수업을 운영합니다.',
-    },
-    {
-        name: 'WHYME 협력 강사진',
-        role: '전문 강사진',
-        summary: '학년별 분화 커리큘럼',
-        description: '학년과 주제별 강점이 다른 강사 네트워크로 학교·기관 환경에 맞춘 수업을 제공합니다.',
-    },
-]
-
-const programItems = [
-    {
-        title: '소그룹 성교육 (남학생)',
-        description: '또래 기반 토론과 활동으로 건강한 성 인식과 관계 감각을 키우는 핵심 프로그램',
-        points: ['팀별 참여 활동 중심', '요청사항 반영형 수업 준비'],
-        color: 'var(--program-small-group-boys)',
-    },
-    {
-        title: '1:1 교육',
-        description: '학생 성향과 속도에 맞춰 민감 주제를 깊이 있게 다루는 맞춤형 교육',
-        points: ['개인 상담형 커뮤니케이션', '집중 피드백 제공'],
-        color: 'var(--program-1to1)',
-    },
-    {
-        title: '온라인 성교육',
-        description: '비대면 환경에서도 집중도 높은 구조로 운영되는 라이브/녹화 혼합형 콘텐츠',
-        points: ['라이브 + 복습 구조', '장소 제약 없는 참여'],
-        color: 'var(--program-online-sex-ed)',
-    },
-    {
-        title: '미디어 스쿨',
-        description: '디지털 콘텐츠를 분석하고 표현하는 힘을 기르는 실습형 미디어 교육',
-        points: ['디지털 문해력 강화', '표현 활동 실습'],
-        color: 'var(--program-media-school)',
     },
 ]
 
@@ -123,7 +77,10 @@ const newsItems = [
     },
 ]
 
-export default function Home() {
+export default async function Home() {
+    noStore()
+    const { instructors: instructorItems, programs: programItems } = await getPublicLandingContent()
+
     return (
         <main className={styles.page}>
             <ScrollReveal />
@@ -215,7 +172,7 @@ export default function Home() {
                 <HorizontalCarousel ariaLabel="강사 소개 슬라이드" autoPlayMs={2800} itemMinWidth={260}>
                     {instructorItems.map((item, index) => (
                         <article
-                            key={item.name}
+                            key={item.id}
                             className={styles.instructorCard}
                             data-reveal
                             data-reveal-delay={String(60 + index * 70)}
@@ -237,7 +194,7 @@ export default function Home() {
                 <HorizontalCarousel ariaLabel="교육 프로그램 슬라이드" autoPlayMs={2400} itemMinWidth={280}>
                     {programItems.map((item, index) => (
                         <article
-                            key={item.title}
+                            key={item.id}
                             className={styles.programCard}
                             data-reveal
                             data-reveal-delay={String(60 + index * 65)}
