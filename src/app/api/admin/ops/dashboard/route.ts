@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { extractInstructorMemos, extractLocationFromMemo, extractOpsMemos } from '@/lib/group-memo';
+import { requireInternalUser } from '@/lib/internal-auth-server';
 
 function pad2(value: number): string {
   return String(value).padStart(2, '0');
@@ -27,6 +28,11 @@ function parseDayRange(value: string): { start: Date; end: Date } {
 
 export async function GET(request: Request) {
   try {
+    const auth = await requireInternalUser(request, { roles: ['admin', 'super_admin'] });
+    if (!auth.user) {
+      return auth.response as NextResponse;
+    }
+
     const { searchParams } = new URL(request.url);
     const selectedDate = parseDateInput(searchParams.get('date'));
     const { start, end } = parseDayRange(selectedDate);

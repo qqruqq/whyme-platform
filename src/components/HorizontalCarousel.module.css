@@ -1,0 +1,130 @@
+.carousel {
+  --carousel-gap: 12px;
+  --carousel-item-min: 250px;
+  --carousel-button-size: 38px;
+
+  position: relative;
+  display: grid;
+  gap: 10px;
+}
+
+.viewport {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  padding-inline: 2px;
+}
+
+.viewport::-webkit-scrollbar {
+  display: none;
+}
+
+.track {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(var(--carousel-item-min), 86%);
+  gap: var(--carousel-gap);
+}
+
+.slide {
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+
+.navButton {
+  position: absolute;
+  top: 44%;
+  z-index: 2;
+  width: var(--carousel-button-size);
+  height: var(--carousel-button-size);
+  border-radius: 999px;
+  border: 1px solid rgba(var(--color-line-rgb), 0.92);
+  background: rgba(255, 255, 255, 0.9);
+  color: rgba(var(--color-ink-rgb), 0.8);
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transform: translateY(-50%);
+  transition:
+    transform 220ms ease,
+    box-shadow 220ms ease,
+    border-color 220ms ease,
+    color 220ms ease;
+}
+
+.navButton:hover {
+  transform: translateY(-50%) scale(1.04);
+  border-color: rgba(var(--color-primary-rgb), 0.55);
+  color: rgba(var(--color-ink-rgb), 0.95);
+  box-shadow: 0 10px 18px rgba(88, 56, 34, 0.14);
+}
+
+.navButtonPrev {
+  left: -8px;
+}
+
+.navButtonNext {
+  right: -8px;
+}
+
+.navButton:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  border: 0;
+  background: rgba(var(--color-line-rgb), 1);
+  transition:
+    transform 220ms ease,
+    background-color 220ms ease;
+}
+
+.dotActive {
+  transform: scale(1.35);
+  background: var(--color-primary);
+}
+
+@media (min-width: 720px) {
+  .track {
+    grid-auto-columns: minmax(var(--carousel-item-min), 44%);
+  }
+}
+
+@media (min-width: 1120px) {
+  .carousel {
+    --carousel-gap: 14px;
+  }
+
+  .track {
+    grid-auto-columns: minmax(var(--carousel-item-min), 31%);
+  }
+}
+
+@media (max-width: 680px) {
+  .navButton {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .navButton,
+  .dot {
+    transition: none;
+  }
+}

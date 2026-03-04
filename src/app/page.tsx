@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import HorizontalCarousel from '@/components/HorizontalCarousel'
 import ScrollReveal from '@/components/ScrollReveal'
 import styles from './page.module.css'
 
@@ -211,7 +212,7 @@ export default function Home() {
                     <h2 className={styles.sectionTitle}>강사소개</h2>
                     <p className={styles.sectionLead}>현장 경험과 소통 역량을 갖춘 WHYME 전문 강사진</p>
                 </div>
-                <div className={styles.instructorGrid}>
+                <HorizontalCarousel ariaLabel="강사 소개 슬라이드" autoPlayMs={2800} itemMinWidth={260}>
                     {instructorItems.map((item, index) => (
                         <article
                             key={item.name}
@@ -225,7 +226,7 @@ export default function Home() {
                             <p className={styles.cardText}>{item.description}</p>
                         </article>
                     ))}
-                </div>
+                </HorizontalCarousel>
             </section>
 
             <section id="programs" className={styles.section} data-reveal>
@@ -233,7 +234,7 @@ export default function Home() {
                     <h2 className={styles.sectionTitle}>교육프로그램</h2>
                     <p className={styles.sectionLead}>목표와 상황에 맞게 선택 가능한 WHYME 라인업</p>
                 </div>
-                <div className={styles.programGrid}>
+                <HorizontalCarousel ariaLabel="교육 프로그램 슬라이드" autoPlayMs={2400} itemMinWidth={280}>
                     {programItems.map((item, index) => (
                         <article
                             key={item.title}
@@ -257,7 +258,7 @@ export default function Home() {
                             </ul>
                         </article>
                     ))}
-                </div>
+                </HorizontalCarousel>
             </section>
 
             <section id="curriculum" className={styles.section} data-reveal>

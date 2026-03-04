@@ -8,6 +8,7 @@ import {
   upsertLocationInMemo,
 } from '@/lib/group-memo';
 import { z } from 'zod';
+import { requireInternalUser } from '@/lib/internal-auth-server';
 
 const opsGroupUpdateSchema = z
   .object({
@@ -55,6 +56,11 @@ function mergeDateTime(base: Date, classDate?: string, classTime?: string): Date
 
 export async function PATCH(request: Request) {
   try {
+    const auth = await requireInternalUser(request, { roles: ['admin', 'super_admin'] });
+    if (!auth.user) {
+      return auth.response as NextResponse;
+    }
+
     const body = await request.json();
     const validation = opsGroupUpdateSchema.safeParse(body);
 
@@ -66,7 +72,7 @@ export async function PATCH(request: Request) {
     }
 
     const data = validation.data;
-    const actorName = data.actorName || '실무자';
+    const actorName = data.actorName || auth.user.name || '실무자';
 
     const updated = await prisma.$transaction(async (tx) => {
       const group = await tx.groupPass.findUnique({

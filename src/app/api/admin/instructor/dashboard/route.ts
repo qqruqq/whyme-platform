@@ -1,10 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { extractInstructorMemos, extractLocationFromMemo } from '@/lib/group-memo';
-import {
-  getAuthenticatedInstructorName,
-  normalizeInstructorName,
-} from '@/lib/instructor-auth';
+import { normalizeInstructorName } from '@/lib/instructor-auth';
+import { requireInternalUser } from '@/lib/internal-auth-server';
 
 function pad2(value: number): string {
   return String(value).padStart(2, '0');
@@ -117,6 +115,11 @@ type LeaderMemoHistoryItem = {
 
 export async function GET(request: Request) {
   try {
+    const auth = await requireInternalUser(request, { roles: ['instructor'] });
+    if (!auth.user) {
+      return auth.response as NextResponse;
+    }
+
     const { searchParams } = new URL(request.url);
     const { year, month } = parseMonthInput(searchParams.get('month'));
     const fallbackDate = `${year}-${pad2(month)}-01`;
@@ -126,11 +129,7 @@ export async function GET(request: Request) {
     const includeAllRaw = searchParams.get('includeAll');
     const includeAll =
       includeAllRaw === '1' || includeAllRaw === 'true' || includeAllRaw === 'yes' || includeAllRaw === 'on';
-    const selectedInstructor = normalizeInstructorName(getAuthenticatedInstructorName(request));
-
-    if (!selectedInstructor) {
-      return NextResponse.json({ error: '강사 로그인이 필요합니다.' }, { status: 401 });
-    }
+    const selectedInstructor = normalizeInstructorName(auth.user.name);
 
     const monthStart = new Date(year, month - 1, 1, 0, 0, 0, 0);
     const monthEnd = new Date(year, month, 0, 23, 59, 59, 999);

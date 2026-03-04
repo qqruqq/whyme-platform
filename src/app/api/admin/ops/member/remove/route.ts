@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
+import { requireInternalUser } from '@/lib/internal-auth-server';
 
 const removeSchema = z.object({
   groupMemberId: z.string().uuid('groupMemberId 형식이 올바르지 않습니다.'),
@@ -8,6 +9,11 @@ const removeSchema = z.object({
 
 export async function PATCH(request: Request) {
   try {
+    const auth = await requireInternalUser(request, { roles: ['admin', 'super_admin'] });
+    if (!auth.user) {
+      return auth.response as NextResponse;
+    }
+
     const body = await request.json();
     const validation = removeSchema.safeParse(body);
 

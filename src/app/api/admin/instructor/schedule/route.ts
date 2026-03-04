@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
-import { getAuthenticatedInstructorName } from '@/lib/instructor-auth';
+import { requireInternalUser } from '@/lib/internal-auth-server';
 
 const createScheduleSchema = z
   .object({
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '날짜 형식이 올바르지 않습니다.'),
+    endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '종료 날짜 형식이 올바르지 않습니다.').optional(),
     startTime: z.string().regex(/^\d{2}:\d{2}$/, '시작 시간 형식이 올바르지 않습니다.'),
     endTime: z.string().regex(/^\d{2}:\d{2}$/, '종료 시간 형식이 올바르지 않습니다.'),
     title: z.string().trim().optional(),
@@ -14,7 +15,8 @@ const createScheduleSchema = z
   })
   .superRefine((data, ctx) => {
     const start = new Date(`${data.date}T${data.startTime}:00`);
-    const end = new Date(`${data.date}T${data.endTime}:00`);
+    const normalizedEndDate = data.endDate ?? data.date;
+    const end = new Date(`${normalizedEndDate}T${data.endTime}:00`);
 
     if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
       ctx.addIssue({
@@ -28,18 +30,19 @@ const createScheduleSchema = z
     if (end.getTime() <= start.getTime()) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: '종료 시간은 시작 시간보다 늦어야 합니다.',
-        path: ['endTime'],
+        message: '종료 날짜/시간은 시작 날짜/시간보다 늦어야 합니다.',
+        path: ['endDate'],
       });
     }
   });
 
 export async function POST(request: Request) {
   try {
-    const instructorName = getAuthenticatedInstructorName(request);
-    if (!instructorName) {
-      return NextResponse.json({ error: '강사 로그인이 필요합니다.' }, { status: 401 });
+    const auth = await requireInternalUser(request, { roles: ['instructor'] });
+    if (!auth.user) {
+      return auth.response as NextResponse;
     }
+    const instructorName = auth.user.name;
 
     const body = await request.json();
     const validation = createScheduleSchema.safeParse(body);
@@ -51,10 +54,11 @@ export async function POST(request: Request) {
       );
     }
 
-    const { date, startTime, endTime } = validation.data;
+    const { date, endDate, startTime, endTime } = validation.data;
+    const normalizedEndDate = endDate ?? date;
 
     const startAt = new Date(`${date}T${startTime}:00`);
-    const endAt = new Date(`${date}T${endTime}:00`);
+    const endAt = new Date(`${normalizedEndDate}T${endTime}:00`);
 
     const existing = await prisma.reservationSlot.findFirst({
       where: {

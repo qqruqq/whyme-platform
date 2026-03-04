@@ -9,6 +9,8 @@ type AuthCheckResponse = {
   success: boolean;
   authenticated: boolean;
   instructorName?: string;
+  role?: 'super_admin' | 'admin' | 'instructor';
+  dashboardPath?: string;
 };
 
 type ApiErrorPayload = {
@@ -55,7 +57,7 @@ export default function AdminLoginPage() {
 
         const data = payload as AuthCheckResponse;
         if (data.authenticated) {
-          router.replace('/admin/instructor');
+          router.replace(data.dashboardPath || '/admin/instructor');
         }
       } finally {
         if (!cancelled) {
@@ -102,7 +104,8 @@ export default function AdminLoginPage() {
           return;
         }
 
-        router.push('/admin/instructor');
+        const data = payload as AuthCheckResponse;
+        router.push(data.dashboardPath || '/admin/instructor');
       } catch (_error) {
         setLoginError('로그인 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
       } finally {
@@ -117,14 +120,14 @@ export default function AdminLoginPage() {
       <section className={styles.panel}>
         <p className={styles.badge}>Admin</p>
         <h1 className={`font-display ${styles.title}`}>관리자 로그인</h1>
-        <p className={styles.description}>강사 관리 페이지 접근을 위해 이름과 코드를 입력해주세요.</p>
+        <p className={styles.description}>강사/관리자 페이지 접근을 위해 이름과 코드를 입력해주세요.</p>
 
         {checkingAuth ? <p className={styles.infoText}>로그인 상태를 확인하고 있습니다...</p> : null}
         {loginError ? <p className={styles.errorText}>{loginError}</p> : null}
 
         <form className={styles.form} onSubmit={onLogin}>
           <label className={styles.field}>
-            <span>강사 이름</span>
+            <span>이름</span>
             <input
               value={loginName}
               onChange={(event) => setLoginName(event.target.value)}
@@ -143,7 +146,7 @@ export default function AdminLoginPage() {
             />
           </label>
           <button type="submit" className={styles.primaryButton} disabled={loginSubmitting}>
-            {loginSubmitting ? '로그인 중...' : '강사 로그인'}
+            {loginSubmitting ? '로그인 중...' : '로그인'}
           </button>
         </form>
 

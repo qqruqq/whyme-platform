@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import styles from './InlineCalendar.module.css'
 
 export type InlineCalendarDayBadge = {
@@ -25,10 +25,17 @@ export type InlineCalendarDateSelectPayload = {
   anchorRect: DOMRectReadOnly
 }
 
+export type InlineCalendarDateRangeSelectPayload = {
+  startDate: string
+  endDate: string
+  anchorRect: DOMRectReadOnly
+}
+
 type InlineCalendarProps = {
   value: string
   onChange: (nextValue: string) => void
   onDateSelect?: (payload: InlineCalendarDateSelectPayload) => void
+  onDateRangeSelect?: (payload: InlineCalendarDateRangeSelectPayload) => void
   dayBadges?: Record<string, InlineCalendarDayBadge>
   dayItems?: Record<string, InlineCalendarDayItem[]>
   onDayItemSelect?: (payload: InlineCalendarDayItemSelectPayload) => void
@@ -75,10 +82,15 @@ function isSameDate(a: Date, b: Date): boolean {
   return isSameMonth(a, b) && a.getDate() === b.getDate()
 }
 
+function normalizeDateRange(firstDate: string, secondDate: string): [string, string] {
+  return firstDate <= secondDate ? [firstDate, secondDate] : [secondDate, firstDate]
+}
+
 export default function InlineCalendar({
   value,
   onChange,
   onDateSelect,
+  onDateRangeSelect,
   dayBadges,
   dayItems,
   onDayItemSelect,
@@ -118,6 +130,57 @@ export default function InlineCalendar({
   }, [])
 
   const monthLabel = `${displayMonth.getFullYear()}년 ${pad2(displayMonth.getMonth() + 1)}월`
+  const [isDragging, setIsDragging] = useState(false)
+  const [dragStartDate, setDragStartDate] = useState<string | null>(null)
+  const [dragEndDate, setDragEndDate] = useState<string | null>(null)
+  const dragAnchorRectRef = useRef<DOMRectReadOnly | null>(null)
+  const dragMovedRef = useRef(false)
+  const suppressDateClickRef = useRef(false)
+
+  const activeDragRange = useMemo(() => {
+    if (!isDragging || !dragStartDate || !dragEndDate) return null
+    const [startDate, endDate] = normalizeDateRange(dragStartDate, dragEndDate)
+    return { startDate, endDate }
+  }, [dragEndDate, dragStartDate, isDragging])
+
+  const finishDragSelection = useCallback(() => {
+    if (!isDragging || !dragStartDate || !dragEndDate) return
+
+    const [startDate, endDate] = normalizeDateRange(dragStartDate, dragEndDate)
+    const movedAcrossDates = dragMovedRef.current && startDate !== endDate
+    const anchorRect = dragAnchorRectRef.current
+
+    setIsDragging(false)
+    setDragStartDate(null)
+    setDragEndDate(null)
+    dragMovedRef.current = false
+
+    if (!movedAcrossDates || !anchorRect) {
+      return
+    }
+
+    suppressDateClickRef.current = true
+    onChange(startDate)
+    onDateRangeSelect?.({
+      startDate,
+      endDate,
+      anchorRect,
+    })
+  }, [dragEndDate, dragStartDate, isDragging, onChange, onDateRangeSelect])
+
+  useEffect(() => {
+    if (!isDragging) return
+
+    const handleWindowMouseUp = () => {
+      finishDragSelection()
+    }
+
+    window.addEventListener('mouseup', handleWindowMouseUp)
+
+    return () => {
+      window.removeEventListener('mouseup', handleWindowMouseUp)
+    }
+  }, [finishDragSelection, isDragging])
 
   return (
     <div className={styles.calendarRoot}>
@@ -168,6 +231,11 @@ export default function InlineCalendar({
                   const allItems = dayItems?.[nextValue] ?? []
                   const items = isCurrentMonth ? allItems : []
                   const hasItems = items.length > 0
+                  const isInDragRange = activeDragRange
+                    ? nextValue >= activeDragRange.startDate && nextValue <= activeDragRange.endDate
+                    : false
+                  const isDragRangeStart = activeDragRange ? nextValue === activeDragRange.startDate : false
+                  const isDragRangeEnd = activeDragRange ? nextValue === activeDragRange.endDate : false
 
                   return (
                     <td key={nextValue}>
@@ -177,17 +245,47 @@ export default function InlineCalendar({
                           hasItems ? styles.dayCellWithItems : '',
                           isSelected ? styles.dayCellSelected : '',
                           isToday ? styles.dayCellToday : '',
+                          isInDragRange ? styles.dayCellInRange : '',
+                          isDragRangeStart ? styles.dayCellRangeStart : '',
+                          isDragRangeEnd ? styles.dayCellRangeEnd : '',
                           isWeekend ? styles.dayCellWeekend : '',
                           !isCurrentMonth ? styles.dayCellOutside : '',
                         ]
                           .filter(Boolean)
                           .join(' ')}
+                        onMouseDown={(event) => {
+                          if (event.button !== 0) return
+
+                          const target = event.target as HTMLElement | null
+                          if (target?.closest('[data-calendar-item="true"]')) return
+
+                          dragAnchorRectRef.current = event.currentTarget.getBoundingClientRect()
+                          dragMovedRef.current = false
+                          setIsDragging(true)
+                          setDragStartDate(nextValue)
+                          setDragEndDate(nextValue)
+                        }}
+                        onMouseEnter={(event) => {
+                          if (!isDragging || !dragStartDate) return
+
+                          if (dragEndDate !== nextValue) {
+                            dragMovedRef.current = true
+                            setDragEndDate(nextValue)
+                          }
+
+                          dragAnchorRectRef.current = event.currentTarget.getBoundingClientRect()
+                        }}
                       >
                         <div className={styles.dayHeader}>
                           <button
                             type="button"
                             className={styles.dayNumberButton}
                             onClick={(event) => {
+                              if (suppressDateClickRef.current) {
+                                suppressDateClickRef.current = false
+                                return
+                              }
+
                               onChange(nextValue)
                               onDateSelect?.({
                                 date: nextValue,

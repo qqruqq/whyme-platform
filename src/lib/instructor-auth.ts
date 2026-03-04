@@ -1,11 +1,16 @@
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 
 export const INSTRUCTOR_SESSION_COOKIE = 'wm_instructor_session';
 export const INSTRUCTOR_NAME_COOKIE = 'wm_instructor_name';
+export const INTERNAL_ROLE_COOKIE = 'wm_internal_role';
 export const INSTRUCTOR_SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
 
-type InstructorSessionPayload = {
+export type InternalUserRole = 'super_admin' | 'admin' | 'instructor';
+
+export type InstructorSessionPayload = {
+  userId: string;
   name: string;
+  role: InternalUserRole;
   exp: number;
 };
 
@@ -25,8 +30,20 @@ function base64UrlDecode(value: string): string {
   return Buffer.from(value, 'base64url').toString('utf8');
 }
 
+function isInternalUserRole(value: string): value is InternalUserRole {
+  return value === 'super_admin' || value === 'admin' || value === 'instructor';
+}
+
 function signPayload(payload: string): string {
   return createHmac('sha256', getAuthSecret()).update(payload).digest('base64url');
+}
+
+export function hashSessionToken(token: string): string {
+  return createHash('sha256').update(token).digest('base64url');
+}
+
+export function getSessionExpiryDate(): Date {
+  return new Date(Date.now() + INSTRUCTOR_SESSION_MAX_AGE_SECONDS * 1000);
 }
 
 export function getCookieValue(cookieHeader: string | null, key: string): string {
@@ -119,10 +136,16 @@ export function validateInstructorCode(instructorName: string, code: string): bo
   return normalizedCode === expectedCode;
 }
 
-export function createInstructorSessionToken(instructorName: string): string {
-  const normalizedName = normalizeInstructorName(instructorName);
+export function createInstructorSessionToken(input: {
+  userId: string;
+  name: string;
+  role: InternalUserRole;
+}): string {
+  const normalizedName = normalizeInstructorName(input.name);
   const payload: InstructorSessionPayload = {
+    userId: input.userId.trim(),
     name: normalizedName,
+    role: input.role,
     exp: Math.floor(Date.now() / 1000) + INSTRUCTOR_SESSION_MAX_AGE_SECONDS,
   };
 
@@ -150,8 +173,13 @@ export function verifyInstructorSessionToken(token: string): InstructorSessionPa
   }
 
   try {
-    const parsed = JSON.parse(base64UrlDecode(encodedPayload)) as InstructorSessionPayload;
+    const parsed = JSON.parse(base64UrlDecode(encodedPayload)) as Partial<InstructorSessionPayload> & {
+      role?: string;
+      userId?: string;
+    };
     const normalizedName = normalizeInstructorName(parsed.name);
+    const normalizedUserId = (parsed.userId || '').trim();
+    const normalizedRole = parsed.role && isInternalUserRole(parsed.role) ? parsed.role : 'instructor';
     if (!normalizedName || typeof parsed.exp !== 'number') {
       return null;
     }
@@ -161,7 +189,9 @@ export function verifyInstructorSessionToken(token: string): InstructorSessionPa
     }
 
     return {
+      userId: normalizedUserId,
       name: normalizedName,
+      role: normalizedRole,
       exp: parsed.exp,
     };
   } catch {
@@ -169,13 +199,17 @@ export function verifyInstructorSessionToken(token: string): InstructorSessionPa
   }
 }
 
-export function getAuthenticatedInstructorName(request: Request): string {
+export function getAuthenticatedSession(request: Request): InstructorSessionPayload | null {
   const cookieHeader = request.headers.get('cookie');
   const sessionToken = getCookieValue(cookieHeader, INSTRUCTOR_SESSION_COOKIE);
   if (!sessionToken) {
-    return '';
+    return null;
   }
 
-  const session = verifyInstructorSessionToken(sessionToken);
+  return verifyInstructorSessionToken(sessionToken);
+}
+
+export function getAuthenticatedInstructorName(request: Request): string {
+  const session = getAuthenticatedSession(request);
   return session?.name || '';
 }

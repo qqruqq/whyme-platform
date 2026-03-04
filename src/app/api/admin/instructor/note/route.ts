@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { appendInstructorMemo, extractInstructorMemos } from '@/lib/group-memo';
 import { z } from 'zod';
-import { getAuthenticatedInstructorName } from '@/lib/instructor-auth';
+import { requireInternalUser } from '@/lib/internal-auth-server';
 
 const instructorNoteSchema = z.object({
   groupId: z.string().uuid('groupId 형식이 올바르지 않습니다.'),
@@ -11,10 +11,11 @@ const instructorNoteSchema = z.object({
 
 export async function PATCH(request: Request) {
   try {
-    const instructorName = getAuthenticatedInstructorName(request);
-    if (!instructorName) {
-      return NextResponse.json({ error: '강사 로그인이 필요합니다.' }, { status: 401 });
+    const auth = await requireInternalUser(request, { roles: ['instructor'] });
+    if (!auth.user) {
+      return auth.response as NextResponse;
     }
+    const instructorName = auth.user.name;
 
     const body = await request.json();
     const validation = instructorNoteSchema.safeParse(body);

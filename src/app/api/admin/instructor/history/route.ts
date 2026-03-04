@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { normalizePhoneDigits } from '@/lib/phone';
 import { extractInstructorMemos, extractLocationFromMemo } from '@/lib/group-memo';
+import { requireInternalUser } from '@/lib/internal-auth-server';
 
 function toNullableString(value: string | null): string | null {
   if (!value) return null;
@@ -11,6 +12,11 @@ function toNullableString(value: string | null): string | null {
 
 export async function GET(request: Request) {
   try {
+    const auth = await requireInternalUser(request, { roles: ['instructor'] });
+    if (!auth.user) {
+      return auth.response as NextResponse;
+    }
+
     const { searchParams } = new URL(request.url);
     const parentPhoneInput = searchParams.get('parentPhone')?.trim() || '';
     const childNameInput = searchParams.get('childName')?.trim() || '';

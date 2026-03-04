@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import InlineCalendar, {
   type InlineCalendarDateSelectPayload,
+  type InlineCalendarDateRangeSelectPayload,
   type InlineCalendarDayBadge,
   type InlineCalendarDayItem,
 } from '@/components/InlineCalendar';
@@ -152,6 +153,8 @@ type AuthCheckResponse = {
   success: boolean;
   authenticated: boolean;
   instructorName?: string;
+  role?: 'super_admin' | 'admin' | 'instructor';
+  dashboardPath?: string;
 };
 
 function todayKey(): string {
@@ -213,6 +216,7 @@ export default function InstructorAdminPage() {
   const [createForm, setCreateForm] = useState({
     title: '',
     date: todayKey(),
+    endDate: todayKey(),
     startTime: '10:00',
     endTime: '12:00',
     location: '',
@@ -245,10 +249,12 @@ export default function InstructorAdminPage() {
         }
 
         const data = payload as AuthCheckResponse;
-        if (data.authenticated && data.instructorName) {
+        if (data.authenticated && data.instructorName && data.role === 'instructor') {
           const normalizedName = data.instructorName.trim();
           setIsAuthenticated(true);
           setInstructorIdentity(normalizedName);
+        } else if (data.authenticated && data.dashboardPath) {
+          router.replace(data.dashboardPath);
         } else {
           setIsAuthenticated(false);
           setInstructorIdentity('');
@@ -406,6 +412,7 @@ export default function InstructorAdminPage() {
         },
         body: JSON.stringify({
           date: createForm.date,
+          endDate: createForm.endDate,
           startTime: createForm.startTime,
           endTime: createForm.endTime,
           title: createForm.title.trim() || undefined,
@@ -715,6 +722,32 @@ export default function InstructorAdminPage() {
       setCreateForm((prev) => ({
         ...prev,
         date,
+        endDate: date,
+      }));
+      setCreateAnchor(nextAnchor);
+      setCreatePosition(nextPosition);
+      setFloatingPosition(null);
+      setFloatingAnchor(null);
+      setCreateError(null);
+      setCreateMessage(null);
+    },
+    [calculateFloatingPosition]
+  );
+
+  const onDateRangeSelect = useCallback(
+    ({ startDate, endDate, anchorRect }: InlineCalendarDateRangeSelectPayload) => {
+      const nextAnchor: FloatingAnchor = {
+        top: anchorRect.top,
+        bottom: anchorRect.bottom,
+        left: anchorRect.left,
+        right: anchorRect.right,
+      };
+
+      const nextPosition = calculateFloatingPosition(nextAnchor, Math.min(560, window.innerHeight - 24));
+      setCreateForm((prev) => ({
+        ...prev,
+        date: startDate,
+        endDate,
       }));
       setCreateAnchor(nextAnchor);
       setCreatePosition(nextPosition);
@@ -781,9 +814,14 @@ export default function InstructorAdminPage() {
                 <p className={styles.authText}>
                   로그인 강사: <strong>{activeInstructor}</strong>
                 </p>
-                <button type="button" className={styles.ghostButton} onClick={onLogout}>
-                  로그아웃
-                </button>
+                <div className={styles.authActions}>
+                  <Link href="/admin/profile" className={styles.ghostButton}>
+                    내 정보
+                  </Link>
+                  <button type="button" className={styles.ghostButton} onClick={onLogout}>
+                    로그아웃
+                  </button>
+                </div>
               </div>
 
               <label className={styles.checkboxField}>
@@ -836,6 +874,7 @@ export default function InstructorAdminPage() {
                   closeCreatePanel();
                 }}
                 onDateSelect={onDateSelect}
+                onDateRangeSelect={onDateRangeSelect}
                 dayBadges={calendarBadges}
                 dayItems={calendarItems}
                 onDayItemSelect={({ date, itemId, anchorRect }) => {
@@ -910,7 +949,7 @@ export default function InstructorAdminPage() {
 
               <div className={styles.summaryGrid}>
                 <label className={styles.field}>
-                  <span>날짜</span>
+                  <span>시작일</span>
                   <input
                     type="date"
                     value={createForm.date}
@@ -918,10 +957,19 @@ export default function InstructorAdminPage() {
                   />
                 </label>
                 <label className={styles.field}>
-                  <span>강사</span>
-                  <input value={activeInstructor || '-'} readOnly />
+                  <span>종료일</span>
+                  <input
+                    type="date"
+                    value={createForm.endDate}
+                    onChange={(event) => setCreateForm((prev) => ({ ...prev, endDate: event.target.value }))}
+                  />
                 </label>
               </div>
+
+              <label className={styles.field}>
+                <span>강사</span>
+                <input value={activeInstructor || '-'} readOnly />
+              </label>
 
               <div className={styles.summaryGrid}>
                 <label className={styles.field}>

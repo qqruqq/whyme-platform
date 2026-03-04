@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import InlineCalendar from '@/components/InlineCalendar';
 import styles from './page.module.css';
 
@@ -63,6 +64,14 @@ type OpsDashboardResponse = {
     status: Record<string, number>;
   };
   rows: GroupRow[];
+};
+
+type AuthCheckResponse = {
+  success: boolean;
+  authenticated: boolean;
+  instructorName?: string;
+  role?: 'super_admin' | 'admin' | 'instructor';
+  dashboardPath?: string;
 };
 
 type ApiErrorPayload = {
@@ -132,6 +141,10 @@ function parseError(payload: unknown): string {
 }
 
 export default function OpsAdminPage() {
+  const router = useRouter();
+  const [authChecking, setAuthChecking] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [actorName, setActorName] = useState('');
   const [selectedDate, setSelectedDate] = useState(todayKey());
   const [loading, setLoading] = useState(false);
   const [loadingError, setLoadingError] = useState<string | null>(null);
@@ -147,7 +160,54 @@ export default function OpsAdminPage() {
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const checkAuth = async () => {
+      setAuthChecking(true);
+      try {
+        const response = await fetch('/api/admin/instructor/auth', {
+          cache: 'no-store',
+        });
+        const payload: unknown = await response.json().catch(() => null);
+        if (cancelled || !response.ok) return;
+
+        const data = payload as AuthCheckResponse;
+        const role = data.role;
+        if (data.authenticated && (role === 'admin' || role === 'super_admin')) {
+          setIsAuthenticated(true);
+          setActorName(data.instructorName?.trim() || '실무자');
+          return;
+        }
+
+        setIsAuthenticated(false);
+        setActorName('');
+        if (data.authenticated && data.dashboardPath) {
+          router.replace(data.dashboardPath);
+          return;
+        }
+        router.replace('/admin/login');
+      } finally {
+        if (!cancelled) {
+          setAuthChecking(false);
+        }
+      }
+    };
+
+    void checkAuth();
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
+
   const fetchDashboard = useCallback(async () => {
+    if (!isAuthenticated) {
+      setData(null);
+      setLoading(false);
+      setLoadingError(null);
+      return;
+    }
+
     setLoading(true);
     setLoadingError(null);
 
@@ -156,6 +216,12 @@ export default function OpsAdminPage() {
       const payload: unknown = await response.json().catch(() => null);
 
       if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          setIsAuthenticated(false);
+          setActorName('');
+          router.replace('/admin/login');
+          return;
+        }
         setLoadingError(parseError(payload));
         return;
       }
@@ -184,11 +250,13 @@ export default function OpsAdminPage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedDate]);
+  }, [isAuthenticated, router, selectedDate]);
 
   useEffect(() => {
-    fetchDashboard();
-  }, [fetchDashboard]);
+    if (!authChecking && isAuthenticated) {
+      fetchDashboard();
+    }
+  }, [authChecking, fetchDashboard, isAuthenticated]);
 
   const filteredRows = useMemo(() => {
     if (!data) return [];
@@ -227,7 +295,7 @@ export default function OpsAdminPage() {
             location: draft.location,
             headcountDeclared: Number.isFinite(parsedHeadcount) ? parsedHeadcount : undefined,
             opsMemo: draft.opsMemo,
-            actorName: '실무자',
+            actorName: actorName || '실무자',
           }),
         });
 
@@ -252,7 +320,7 @@ export default function OpsAdminPage() {
         setSavingGroupId(null);
       }
     },
-    [drafts, fetchDashboard]
+    [actorName, drafts, fetchDashboard]
   );
 
   const onRemoveMember = useCallback(
@@ -290,6 +358,23 @@ export default function OpsAdminPage() {
     [fetchDashboard]
   );
 
+  const onLogout = useCallback(async () => {
+    try {
+      await fetch('/api/admin/instructor/auth', {
+        method: 'DELETE',
+      });
+    } catch (_error) {
+      // noop
+    }
+
+    setIsAuthenticated(false);
+    setActorName('');
+    setData(null);
+    setLoading(false);
+    setLoadingError(null);
+    router.replace('/admin/login');
+  }, [router]);
+
   return (
     <main className={styles.page}>
       <section className={styles.hero}>
@@ -300,6 +385,24 @@ export default function OpsAdminPage() {
           홈으로 돌아가기
         </Link>
       </section>
+
+      {authChecking ? <p className={styles.infoText}>로그인 상태를 확인하고 있습니다...</p> : null}
+      {!authChecking && !isAuthenticated ? <p className={styles.infoText}>관리자 로그인 페이지로 이동 중입니다...</p> : null}
+      {!authChecking && isAuthenticated ? (
+        <section className={styles.authBar}>
+          <p className={styles.authText}>
+            로그인 관리자: <strong>{actorName || '실무자'}</strong>
+          </p>
+          <div className={styles.authActions}>
+            <Link href="/admin/profile" className={styles.ghostButton}>
+              내 정보
+            </Link>
+            <button type="button" className={styles.ghostButton} onClick={onLogout}>
+              로그아웃
+            </button>
+          </div>
+        </section>
+      ) : null}
 
       <section className={styles.gridLayout}>
         <article className={styles.panel}>

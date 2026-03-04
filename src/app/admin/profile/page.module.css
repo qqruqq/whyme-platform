@@ -1,0 +1,134 @@
+.page {
+  min-height: 100vh;
+  padding: 64px 16px;
+  background:
+    radial-gradient(circle at 15% 20%, rgba(var(--color-primary-rgb), 0.14), transparent 36%),
+    radial-gradient(circle at 85% 80%, rgba(var(--color-secondary-rgb), 0.2), transparent 34%),
+    var(--color-bg);
+  display: grid;
+  place-items: center;
+}
+
+.panel {
+  width: min(640px, 100%);
+  background: var(--color-bg-panel);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-card);
+  box-shadow: 0 20px 44px rgba(15, 35, 62, 0.11);
+  padding: clamp(20px, 4vw, 30px);
+  display: grid;
+  gap: 12px;
+}
+
+.badge {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(var(--color-primary-rgb), 0.9);
+}
+
+.title {
+  margin: 0;
+  font-size: clamp(24px, 3.8vw, 34px);
+  line-height: 1.16;
+}
+
+.description {
+  margin: 0;
+  font-size: 14px;
+  color: rgba(var(--color-ink-rgb), 0.72);
+}
+
+.metaText {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(var(--color-primary-rgb), 0.9);
+}
+
+.form {
+  display: grid;
+  gap: 10px;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+}
+
+.field span {
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(var(--color-ink-rgb), 0.72);
+}
+
+.field input {
+  height: 40px;
+  border-radius: 10px;
+  border: 1px solid rgba(var(--color-line-rgb), 0.9);
+  background: rgba(255, 255, 255, 0.95);
+  padding: 0 12px;
+  font-size: 14px;
+  color: rgba(var(--color-ink-rgb), 0.92);
+}
+
+.field input:focus {
+  outline: none;
+  border-color: rgba(var(--color-primary-rgb), 0.62);
+  box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.14);
+}
+
+.primaryButton {
+  height: 42px;
+  border: 0;
+  border-radius: 10px;
+  background: linear-gradient(120deg, rgba(var(--color-primary-rgb), 0.92), rgba(var(--color-primary-rgb), 0.74));
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.primaryButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.actions {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.backLink {
+  color: rgba(var(--color-primary-rgb), 0.92);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.backLink:hover {
+  text-decoration: underline;
+}
+
+.infoText,
+.errorText,
+.successText {
+  margin: 0;
+  font-size: 13px;
+}
+
+.infoText {
+  color: rgba(var(--color-ink-rgb), 0.7);
+}
+
+.errorText {
+  color: #b5392f;
+}
+
+.successText {
+  color: #2f7a4d;
+}

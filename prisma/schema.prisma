@@ -58,6 +58,21 @@ enum InvitePurpose {
   @@map("invite_purpose")
 }
 
+enum InternalUserRole {
+  super_admin
+  admin
+  instructor
+  @@map("internal_user_role")
+}
+
+enum InternalUserStatus {
+  pending
+  active
+  suspended
+  deleted
+  @@map("internal_user_status")
+}
+
 // ===== TABLES =====
 
 // 1) 일정 슬롯 (일시/강사)
@@ -202,4 +217,44 @@ model Payment {
   @@index([groupId])
   @@index([occurredAt])
   @@map("payment")
+}
+
+// 8) 내부 사용자 (관리자/강사)
+model InternalUser {
+  userId             String             @id @default(dbgenerated("gen_random_uuid()")) @map("user_id") @db.Uuid
+  role               InternalUserRole
+  status             InternalUserStatus @default(active)
+  loginId            String?            @unique @map("login_id")
+  passwordHash       String?            @map("password_hash")
+  instructorCodeHash String?            @map("instructor_code_hash")
+  name               String
+  phone              String?
+  email              String?
+  createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  lastLoginAt        DateTime?          @map("last_login_at") @db.Timestamptz
+
+  sessions           InternalUserSession[]
+
+  @@index([role, status])
+  @@index([name])
+  @@map("internal_user")
+}
+
+// 9) 내부 사용자 세션
+model InternalUserSession {
+  sessionId   String       @id @default(dbgenerated("gen_random_uuid()")) @map("session_id") @db.Uuid
+  userId      String       @map("user_id") @db.Uuid
+  tokenHash   String       @unique @map("token_hash")
+  ipAddress   String?      @map("ip_address")
+  userAgent   String?      @map("user_agent")
+  expiresAt   DateTime     @map("expires_at") @db.Timestamptz
+  revokedAt   DateTime?    @map("revoked_at") @db.Timestamptz
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz
+
+  user        InternalUser @relation(fields: [userId], references: [userId], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("internal_user_session")
 }
