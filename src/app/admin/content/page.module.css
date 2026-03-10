@@ -210,6 +210,22 @@
   gap: 10px;
 }
 
+.linkRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: rgba(var(--color-ink-rgb), 0.7);
+}
+
+.inlineLink {
+  font-size: 12px;
+  color: rgba(var(--color-primary-rgb), 1);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .infoText,
 .errorText,
 .successText {

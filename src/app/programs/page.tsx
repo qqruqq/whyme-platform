@@ -22,27 +22,28 @@ export default async function ProgramsPage() {
                 </div>
                 <HorizontalCarousel ariaLabel="교육 프로그램 슬라이드" autoPlayMs={2400} itemMinWidth={280}>
                     {programs.map((item, index) => (
-                        <article
-                            key={item.id}
-                            className={styles.programCard}
-                            data-reveal
-                            data-reveal-delay={String(60 + index * 65)}
-                            style={{
-                                borderColor: item.color,
-                                boxShadow: `0 16px 28px color-mix(in srgb, ${item.color} 18%, transparent)`,
-                            }}
-                        >
-                            <span className={styles.programChip} style={{ backgroundColor: item.color }}>
-                                PROGRAM
-                            </span>
-                            <h3 className={styles.cardTitle}>{item.title}</h3>
-                            <p className={styles.cardText}>{item.description}</p>
-                            <ul className={styles.programList}>
-                                {item.points.map((point) => (
-                                    <li key={point}>{point}</li>
-                                ))}
-                            </ul>
-                        </article>
+                        <Link key={item.id} href={`/programs/${item.id}`} className={styles.cardLink}>
+                            <article
+                                className={styles.programCard}
+                                data-reveal
+                                data-reveal-delay={String(60 + index * 65)}
+                                style={{
+                                    borderColor: item.color,
+                                    boxShadow: `0 16px 28px color-mix(in srgb, ${item.color} 18%, transparent)`,
+                                }}
+                            >
+                                <span className={styles.programChip} style={{ backgroundColor: item.color }}>
+                                    PROGRAM
+                                </span>
+                                <h3 className={styles.cardTitle}>{item.title}</h3>
+                                <p className={styles.cardText}>{item.description}</p>
+                                <ul className={styles.programList}>
+                                    {item.points.map((point) => (
+                                        <li key={point}>{point}</li>
+                                    ))}
+                                </ul>
+                            </article>
+                        </Link>
                     ))}
                 </HorizontalCarousel>
             </section>

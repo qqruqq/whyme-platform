@@ -864,6 +864,12 @@ export default function AdminContentPage() {
                     {deletingId === row.programId ? '삭제 중...' : '삭제'}
                   </button>
                 </div>
+                <div className={styles.linkRow}>
+                  <span>상세 페이지</span>
+                  <Link href={`/programs/${row.programId}`} target="_blank" rel="noreferrer" className={styles.inlineLink}>
+                    /programs/{row.programId}
+                  </Link>
+                </div>
               </article>
             );
           })}

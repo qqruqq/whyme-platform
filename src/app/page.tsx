@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { unstable_noStore as noStore } from 'next/cache'
 import HorizontalCarousel from '@/components/HorizontalCarousel'
+import ProgramsPreviewSection from '@/components/ProgramsPreviewSection'
 import PublicHeader from '@/components/public/PublicHeader'
 import ScrollReveal from '@/components/ScrollReveal'
 import { getPublicLandingContent } from '@/lib/landing-content'
@@ -19,8 +20,8 @@ export default async function Home() {
             <section id="brand" className={styles.hero} data-reveal data-reveal-delay="0">
                 <div className={styles.heroInner}>
                     <div className={styles.heroContent} data-reveal data-reveal-delay="40">
-                        <p className={styles.eyebrow}>WHYME BRAND EXPERIENCE</p>
-                        <h1 className={`font-display ${styles.heroTitle}`}>와이미 소그룹 성교육 (남학생)</h1>
+                        <p className={styles.eyebrow}>아름다운 가치관, 와이美</p>
+                        <h1 className={`font-display ${styles.heroTitle}`}>와이미 교육</h1>
                         <p className={styles.heroText}>
                             학생에게는 안전한 관계 감각을, 학부모에게는 신뢰 가능한 교육 운영을 제공합니다.
                             전문 강사진이 학년별 맞춤 수업과 사후 연결까지 책임집니다.
@@ -31,30 +32,14 @@ export default async function Home() {
                             <span className={styles.heroTag}>학부모 연계 운영</span>
                         </div>
                         <div className={styles.heroActions}>
-                            <Link href="/groupinfo" className={styles.primaryButton}>
-                                소그룹 정보 입력 시작
+                            <Link href="/programs" className={styles.primaryButton}>
+                                교육프로그램 보기
                             </Link>
                             <Link href="/groupinfo/lookup" className={styles.secondaryButton}>
                                 예약 내역 조회/수정
                             </Link>
                         </div>
                     </div>
-                    <aside className={styles.heroAside} data-reveal data-reveal-delay="120">
-                        <p className={styles.asideLabel}>운영 포인트</p>
-                        <ul className={styles.asideList}>
-                            <li>학년별 맞춤 커리큘럼 운영</li>
-                            <li>학부모 요청사항 기반 수업 설계</li>
-                            <li>교육 이력 누적으로 연속성 강화</li>
-                        </ul>
-                        <div className={styles.asideActions}>
-                            <Link href="/programs" className={styles.ghostButton}>
-                                교육프로그램 보기
-                            </Link>
-                            <Link href="/instructors" className={styles.secondaryButton}>
-                                강사진 확인
-                            </Link>
-                        </div>
-                    </aside>
                 </div>
 
                 <div className={styles.brandCards}>
@@ -93,37 +78,7 @@ export default async function Home() {
                 </div>
             </section>
 
-            <section id="programs" className={styles.section} data-reveal>
-                <div className={styles.sectionHead} data-reveal data-reveal-delay="20">
-                    <h2 className={styles.sectionTitle}>교육프로그램</h2>
-                    <p className={styles.sectionLead}>목표와 상황에 맞게 선택 가능한 WHYME 라인업</p>
-                </div>
-                <HorizontalCarousel ariaLabel="교육 프로그램 슬라이드" autoPlayMs={2400} itemMinWidth={280}>
-                    {programItems.map((item, index) => (
-                        <article
-                            key={item.id}
-                            className={styles.programCard}
-                            data-reveal
-                            data-reveal-delay={String(60 + index * 65)}
-                            style={{
-                                borderColor: item.color,
-                                boxShadow: `0 16px 28px color-mix(in srgb, ${item.color} 18%, transparent)`,
-                            }}
-                        >
-                            <span className={styles.programChip} style={{ backgroundColor: item.color }}>
-                                PROGRAM
-                            </span>
-                            <h3 className={styles.cardTitle}>{item.title}</h3>
-                            <p className={styles.cardText}>{item.description}</p>
-                            <ul className={styles.programList}>
-                                {item.points.map((point) => (
-                                    <li key={point}>{point}</li>
-                                ))}
-                            </ul>
-                        </article>
-                    ))}
-                </HorizontalCarousel>
-            </section>
+            <ProgramsPreviewSection programItems={programItems} />
 
             <section id="curriculum" className={styles.section} data-reveal>
                 <div className={styles.sectionHead} data-reveal data-reveal-delay="20">
