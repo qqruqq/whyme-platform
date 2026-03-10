@@ -1,7 +1,7 @@
 .carousel {
   --carousel-gap: 12px;
   --carousel-item-min: 250px;
-  --carousel-button-size: 38px;
+  --carousel-button-size: 44px;
 
   position: relative;
   display: grid;
@@ -14,6 +14,9 @@
   scroll-snap-type: x mandatory;
   scrollbar-width: none;
   padding-inline: 2px;
+  scroll-padding-inline: 2px;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;
 }
 
 .viewport::-webkit-scrollbar {
@@ -85,17 +88,33 @@
 }
 
 .dot {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border-radius: 999px;
+  border: 0;
+  background: transparent;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    transform 220ms ease,
+    background-color 220ms ease;
+}
+
+.dot::before {
+  content: '';
   width: 8px;
   height: 8px;
   border-radius: 999px;
-  border: 0;
   background: rgba(var(--color-line-rgb), 1);
   transition:
     transform 220ms ease,
     background-color 220ms ease;
 }
 
-.dotActive {
+.dotActive::before {
   transform: scale(1.35);
   background: var(--color-primary);
 }

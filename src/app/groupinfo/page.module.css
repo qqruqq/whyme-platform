@@ -195,7 +195,7 @@
   align-items: center;
   justify-content: center;
   border-radius: 11px;
-  min-height: 38px;
+  min-height: 44px;
   border: 1px solid rgba(var(--color-line-rgb), 0.95);
   font-size: 14px;
   font-weight: 600;
@@ -365,7 +365,7 @@
   border: 1px solid rgba(var(--color-primary-rgb), 0.48);
   background: rgba(var(--color-primary-rgb), 0.1);
   border-radius: 10px;
-  min-height: 38px;
+  min-height: 44px;
   width: 100%;
   font-size: 14px;
   font-weight: 600;

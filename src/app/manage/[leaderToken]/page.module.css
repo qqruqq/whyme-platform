@@ -85,7 +85,7 @@
   align-items: center;
   justify-content: center;
   margin-top: 8px;
-  min-height: 38px;
+  min-height: 44px;
   border-radius: 10px;
   border: 1px solid rgba(var(--color-primary-rgb), 0.44);
   background: rgba(var(--color-primary-rgb), 0.1);
@@ -151,7 +151,7 @@
 }
 
 .copyButton {
-  min-height: 38px;
+  min-height: 44px;
   border-radius: 10px;
   border: 1px solid rgba(var(--color-primary-rgb), 0.44);
   background: rgba(var(--color-primary-rgb), 0.1);
@@ -223,7 +223,7 @@
 }
 
 .memberDeleteButton {
-  min-height: 32px;
+  min-height: 40px;
   border-radius: 9px;
   border: 1px solid rgba(var(--color-danger-rgb), 0.45);
   background: rgba(var(--color-danger-rgb), 0.08);
@@ -251,7 +251,7 @@
   }
 }
 
-@media (max-width: 520px) {
+@media (max-width: 640px) {
   .buttonRow {
     grid-template-columns: 1fr;
   }

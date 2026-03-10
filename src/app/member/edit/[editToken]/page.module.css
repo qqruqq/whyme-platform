@@ -112,7 +112,7 @@
 .relatedMemberCurrent {
   display: inline-flex;
   align-items: center;
-  min-height: 32px;
+  min-height: 40px;
   padding: 0 10px;
   border-radius: 999px;
   font-size: 12px;
@@ -127,7 +127,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 32px;
+  min-height: 40px;
   padding: 0 10px;
   border-radius: 9px;
   font-size: 13px;
@@ -176,7 +176,7 @@
 }
 
 .studentDeleteButton {
-  min-height: 32px;
+  min-height: 40px;
   border-radius: 9px;
   border: 1px solid rgba(var(--color-danger-rgb), 0.45);
   background: rgba(var(--color-danger-rgb), 0.08);
@@ -271,7 +271,7 @@
   align-items: center;
   justify-content: center;
   border-radius: 11px;
-  min-height: 38px;
+  min-height: 44px;
   border: 1px solid rgba(var(--color-line-rgb), 0.95);
   font-size: 14px;
   font-weight: 600;
@@ -447,7 +447,7 @@
 .copyButton {
   margin-top: 8px;
   width: 100%;
-  min-height: 38px;
+  min-height: 44px;
   border-radius: 10px;
   border: 1px solid rgba(var(--color-primary-rgb), 0.44);
   background: rgba(var(--color-primary-rgb), 0.1);
