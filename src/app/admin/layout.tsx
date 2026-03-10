@@ -2,6 +2,11 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: '와이미 관리자페이지',
+  robots: {
+    index: false,
+    follow: false,
+    nocache: true,
+  },
 };
 
 export default function AdminLayout({

@@ -1,81 +1,11 @@
 import Link from 'next/link'
 import { unstable_noStore as noStore } from 'next/cache'
 import HorizontalCarousel from '@/components/HorizontalCarousel'
+import PublicHeader from '@/components/public/PublicHeader'
 import ScrollReveal from '@/components/ScrollReveal'
 import { getPublicLandingContent } from '@/lib/landing-content'
+import { brandCards, curriculumSteps, faqItems, newsItems } from '@/lib/public-content'
 import styles from './page.module.css'
-
-const navItems = [
-    { label: 'whyme브랜드 소개', href: '#brand' },
-    { label: '강사소개', href: '#instructors' },
-    { label: '교육프로그램', href: '#programs' },
-    { label: '교육 커리큘럼', href: '#curriculum' },
-    { label: 'FAQ', href: '#faq' },
-    { label: '와이미 소식', href: '#news' },
-]
-
-const brandCards = [
-    {
-        title: '성장 단계 맞춤 설계',
-        description: '학년과 발달 수준에 맞춰 강의 난이도와 대화 방식을 조정해 학생 참여도를 높입니다.',
-    },
-    {
-        title: '성·미디어 통합 교육',
-        description: '관계, 경계, 디지털 문해를 함께 다뤄 현실 상황에서 바로 적용할 수 있는 감각을 기릅니다.',
-    },
-    {
-        title: '학부모 연계 운영',
-        description: '대표 학부모 요청사항과 이전 이력을 수업 준비에 반영해 연속성 있는 교육을 만듭니다.',
-    },
-]
-
-const curriculumSteps = [
-    {
-        title: '사전 진단',
-        text: '학년, 교육 경험, 학부모 요청사항을 바탕으로 수업 톤과 전달 강도를 세팅합니다.',
-    },
-    {
-        title: '핵심 수업',
-        text: '관계, 경계, 미디어 영향, 자기보호를 주제로 실제 상황 중심 활동을 진행합니다.',
-    },
-    {
-        title: '사후 공유',
-        text: '강사 특이사항 정리와 다음 수업 참고 이력 누적으로 연속성 있는 교육을 설계합니다.',
-    },
-]
-
-const faqItems = [
-    {
-        q: '소그룹 성교육은 몇 명 기준으로 진행되나요?',
-        a: '대표 학부모 자녀 포함 팀 인원 기준으로 운영하며, 그룹별 설정 인원 내에서 명단 입력이 가능합니다.',
-    },
-    {
-        q: '학부모가 입력한 요청사항은 어떻게 관리되나요?',
-        a: '강사 확인용으로만 노출되며, 팀원 간에는 민감한 요청사항이 직접 공유되지 않도록 관리됩니다.',
-    },
-    {
-        q: '교육 전날에도 수정이 가능한가요?',
-        a: '현재 운영 정책에 맞춰 일정 전날까지 수정 및 팀 공용 링크 사용이 가능하도록 반영되어 있습니다.',
-    },
-]
-
-const newsItems = [
-    {
-        date: '2026.03.01',
-        title: '소그룹 성교육 (남학생) 메인 페이지 리뉴얼',
-        body: '브랜드 랜딩 구성을 재정비하고 강사/실무자 진입 동선을 분리해 운영 효율을 높였습니다.',
-    },
-    {
-        date: '2026.02.24',
-        title: '강사 캘린더 일정 표기 개선',
-        body: '오늘 일정 카드, 날짜 강조 스타일, 일정 생성 동선을 정리해 하루 운영 파악성을 높였습니다.',
-    },
-    {
-        date: '2026.02.18',
-        title: '팀 공용 링크 정책 업데이트',
-        body: '중복 입력 방지와 부모 전화번호 기반 덮어쓰기 로직으로 입력 안정성을 높였습니다.',
-    },
-]
 
 export default async function Home() {
     noStore()
@@ -84,29 +14,7 @@ export default async function Home() {
     return (
         <main className={styles.page}>
             <ScrollReveal />
-            <header className={styles.header}>
-                <div className={styles.brandArea}>
-                    <Link href="/" className={`font-display ${styles.brandLogo}`}>
-                        WHYME
-                    </Link>
-                    <p className={styles.brandTag}>성 · 미디어 교육 브랜드</p>
-                </div>
-                <nav className={styles.nav}>
-                    {navItems.map((item) => (
-                        <a key={item.href} href={item.href} className={styles.navLink}>
-                            {item.label}
-                        </a>
-                    ))}
-                </nav>
-                <div className={styles.headerActions}>
-                    <Link href="/groupinfo" className={styles.primaryButton}>
-                        교육 신청하기
-                    </Link>
-                    <Link href="/admin/login" className={styles.secondaryButton}>
-                        관리자 로그인
-                    </Link>
-                </div>
-            </header>
+            <PublicHeader />
 
             <section id="brand" className={styles.hero} data-reveal data-reveal-delay="0">
                 <div className={styles.heroInner}>
@@ -139,11 +47,11 @@ export default async function Home() {
                             <li>교육 이력 누적으로 연속성 강화</li>
                         </ul>
                         <div className={styles.asideActions}>
-                            <Link href="/admin/login" className={styles.ghostButton}>
-                                강사/실무자 접근
+                            <Link href="/programs" className={styles.ghostButton}>
+                                교육프로그램 보기
                             </Link>
-                            <Link href="/groupinfo/lookup" className={styles.secondaryButton}>
-                                신청 현황 확인
+                            <Link href="/instructors" className={styles.secondaryButton}>
+                                강사진 확인
                             </Link>
                         </div>
                     </aside>
@@ -164,26 +72,25 @@ export default async function Home() {
                 </div>
             </section>
 
-            <section id="instructors" className={styles.section} data-reveal>
+            <section id="news" className={styles.section} data-reveal>
                 <div className={styles.sectionHead} data-reveal data-reveal-delay="20">
-                    <h2 className={styles.sectionTitle}>강사소개</h2>
-                    <p className={styles.sectionLead}>현장 경험과 소통 역량을 갖춘 WHYME 전문 강사진</p>
+                    <h2 className={styles.sectionTitle}>와이미 소식</h2>
+                    <p className={styles.sectionLead}>최근 업데이트와 운영 공지</p>
                 </div>
-                <HorizontalCarousel ariaLabel="강사 소개 슬라이드" autoPlayMs={2800} itemMinWidth={260}>
-                    {instructorItems.map((item, index) => (
+                <div className={styles.newsGrid}>
+                    {newsItems.map((item, index) => (
                         <article
-                            key={item.id}
-                            className={styles.instructorCard}
+                            key={item.title}
+                            className={styles.newsCard}
                             data-reveal
-                            data-reveal-delay={String(60 + index * 70)}
+                            data-reveal-delay={String(60 + index * 75)}
                         >
-                            <p className={styles.role}>{item.role}</p>
-                            <h3 className={styles.cardTitle}>{item.name}</h3>
-                            <p className={styles.cardSub}>{item.summary}</p>
-                            <p className={styles.cardText}>{item.description}</p>
+                            <p className={styles.newsDate}>{item.date}</p>
+                            <h3 className={styles.cardTitle}>{item.title}</h3>
+                            <p className={styles.cardText}>{item.body}</p>
                         </article>
                     ))}
-                </HorizontalCarousel>
+                </div>
             </section>
 
             <section id="programs" className={styles.section} data-reveal>
@@ -239,6 +146,28 @@ export default async function Home() {
                 </div>
             </section>
 
+            <section id="instructors" className={styles.section} data-reveal>
+                <div className={styles.sectionHead} data-reveal data-reveal-delay="20">
+                    <h2 className={styles.sectionTitle}>강사소개</h2>
+                    <p className={styles.sectionLead}>현장 경험과 소통 역량을 갖춘 WHYME 전문 강사진</p>
+                </div>
+                <HorizontalCarousel ariaLabel="강사 소개 슬라이드" autoPlayMs={2800} itemMinWidth={260}>
+                    {instructorItems.map((item, index) => (
+                        <article
+                            key={item.id}
+                            className={styles.instructorCard}
+                            data-reveal
+                            data-reveal-delay={String(60 + index * 70)}
+                        >
+                            <p className={styles.role}>{item.role}</p>
+                            <h3 className={styles.cardTitle}>{item.name}</h3>
+                            <p className={styles.cardSub}>{item.summary}</p>
+                            <p className={styles.cardText}>{item.description}</p>
+                        </article>
+                    ))}
+                </HorizontalCarousel>
+            </section>
+
             <section id="faq" className={styles.section} data-reveal>
                 <div className={styles.sectionHead} data-reveal data-reveal-delay="20">
                     <h2 className={styles.sectionTitle}>FAQ</h2>
@@ -259,27 +188,6 @@ export default async function Home() {
                 </div>
             </section>
 
-            <section id="news" className={styles.section} data-reveal>
-                <div className={styles.sectionHead} data-reveal data-reveal-delay="20">
-                    <h2 className={styles.sectionTitle}>와이미 소식</h2>
-                    <p className={styles.sectionLead}>최근 업데이트와 운영 공지</p>
-                </div>
-                <div className={styles.newsGrid}>
-                    {newsItems.map((item, index) => (
-                        <article
-                            key={item.title}
-                            className={styles.newsCard}
-                            data-reveal
-                            data-reveal-delay={String(60 + index * 75)}
-                        >
-                            <p className={styles.newsDate}>{item.date}</p>
-                            <h3 className={styles.cardTitle}>{item.title}</h3>
-                            <p className={styles.cardText}>{item.body}</p>
-                        </article>
-                    ))}
-                </div>
-            </section>
-
             <section className={styles.footerCta} data-reveal>
                 <div data-reveal data-reveal-delay="20">
                     <h2 className={`font-display ${styles.footerTitle}`}>WHYME와 함께 교육 운영을 더 쉽게</h2>
@@ -292,8 +200,8 @@ export default async function Home() {
                     <Link href="/groupinfo" className={styles.primaryButton}>
                         교육 신청하기
                     </Link>
-                    <Link href="/admin/login" className={styles.secondaryButton}>
-                        관리자 로그인
+                    <Link href="/faq" className={styles.secondaryButton}>
+                        FAQ 확인
                     </Link>
                 </div>
             </section>
